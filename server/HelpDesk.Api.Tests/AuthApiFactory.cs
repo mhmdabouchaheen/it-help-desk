@@ -1,0 +1,120 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Net.Http.Headers;
+using System.Security.Claims;
+using System.Text;
+using HelpDesk.Api.Application.Auth;
+using HelpDesk.Api.Contracts.Auth;
+using HelpDesk.Api.Data;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.IdentityModel.Tokens;
+using Moq;
+
+namespace HelpDesk.Api.Tests;
+
+public sealed class AuthApiFactory : WebApplicationFactory<Program>
+{
+    public const string TestIssuer = "HelpDesk.Api.Tests";
+    public const string TestAudience = "HelpDesk.Api.Tests.Client";
+    public const string TestSecret = "TEST_ONLY_JWT_SIGNING_KEY_32_BYTES_MINIMUM_2026";
+
+    public AuthApiFactory()
+    {
+        AuthenticationService = new Mock<IAuthenticationService>();
+        AuthenticationService.Setup(service => service.RegisterAsync(
+                It.IsAny<RegisterRequest>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(AuthResponse());
+        AuthenticationService.Setup(service => service.LoginAsync(
+                It.IsAny<LoginRequest>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(AuthResponse());
+        AuthenticationService.Setup(service => service.RefreshAsync(
+                It.IsAny<RefreshTokenRequest>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(AuthResponse());
+        AuthenticationService.Setup(service => service.LogoutAsync(
+                It.IsAny<LogoutRequest>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        AuthenticationService.Setup(service => service.GetCurrentUserAsync(
+                It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid userId, CancellationToken _) => CurrentUserResponse(userId));
+    }
+
+    public Mock<IAuthenticationService> AuthenticationService { get; }
+
+    public HttpClient CreateAuthorizedClient(Guid userId, params string[] roles)
+    {
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CreateJwt(userId, roles));
+        return client;
+    }
+
+    public static string CreateJwt(Guid userId, params string[] roles)
+    {
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, userId.ToString())
+        };
+        claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
+
+        var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TestSecret));
+        var token = new JwtSecurityToken(
+            issuer: TestIssuer,
+            audience: TestAudience,
+            claims: claims,
+            notBefore: DateTime.UtcNow.AddMinutes(-1),
+            expires: DateTime.UtcNow.AddMinutes(5),
+            signingCredentials: new SigningCredentials(signingKey, SecurityAlgorithms.HmacSha256));
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.UseEnvironment("Testing");
+        builder.ConfigureAppConfiguration((_, configuration) =>
+        {
+            configuration.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:DefaultConnection"] =
+                    "Host=127.0.0.1;Port=1;Database=not_used;Username=test;Password=test",
+                ["Jwt:Issuer"] = TestIssuer,
+                ["Jwt:Audience"] = TestAudience,
+                ["Jwt:SecretKey"] = TestSecret,
+                ["Jwt:AccessTokenLifetimeMinutes"] = "5",
+                ["Jwt:RefreshTokenLifetimeDays"] = "1"
+            });
+        });
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IAuthenticationService>();
+            services.RemoveAll<ApplicationDbContext>();
+            services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
+            services.AddSingleton(AuthenticationService.Object);
+        });
+    }
+
+    private static AuthResponse AuthResponse() => new()
+    {
+        AccessToken = "test-access-token",
+        ExpiresAtUtc = new DateTime(2026, 7, 20, 12, 0, 0, DateTimeKind.Utc),
+        RefreshToken = "test-refresh-token",
+        RefreshTokenExpiresAtUtc = new DateTime(2026, 7, 27, 12, 0, 0, DateTimeKind.Utc),
+        UserId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+        Email = "employee@example.test",
+        DisplayName = "Test Employee",
+        Roles = ["Employee"]
+    };
+
+    private static CurrentUserResponse CurrentUserResponse(Guid userId) => new()
+    {
+        UserId = userId,
+        Email = "employee@example.test",
+        DisplayName = "Test Employee",
+        Roles = ["Employee"],
+        IsActive = true
+    };
+}
