@@ -3,7 +3,10 @@ using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text;
 using HelpDesk.Api.Application.Auth;
+using HelpDesk.Api.Application.Tickets;
 using HelpDesk.Api.Contracts.Auth;
+using HelpDesk.Api.Contracts.Common;
+using HelpDesk.Api.Contracts.Tickets;
 using HelpDesk.Api.Data;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -41,9 +44,32 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
         AuthenticationService.Setup(service => service.GetCurrentUserAsync(
                 It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Guid userId, CancellationToken _) => CurrentUserResponse(userId));
+        TicketService = new Mock<ITicketService>();
+        TicketLookupService = new Mock<ITicketLookupService>();
+        TicketService.Setup(x => x.CreateAsync(It.IsAny<CreateTicketRequest>(), It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TicketDetail());
+        TicketService.Setup(x => x.GetPagedAsync(It.IsAny<TicketListRequest>(), It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PagedResponse<TicketSummaryResponse> { PageNumber = 1, PageSize = 20 });
+        TicketService.Setup(x => x.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TicketDetail());
+        TicketService.Setup(x => x.UpdateAsync(It.IsAny<Guid>(), It.IsAny<UpdateTicketRequest>(), It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TicketDetail());
+        TicketService.Setup(x => x.AssignAsync(It.IsAny<Guid>(), It.IsAny<AssignTicketRequest>(), It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TicketDetail());
+        TicketService.Setup(x => x.ChangeStatusAsync(It.IsAny<Guid>(), It.IsAny<ChangeTicketStatusRequest>(), It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TicketDetail());
+        TicketService.Setup(x => x.AddCommentAsync(It.IsAny<Guid>(), It.IsAny<AddTicketCommentRequest>(), It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TicketCommentResponse { Id = CommentId, TicketId = TicketId, Body = "ok", Visibility = "Public" });
+        TicketLookupService.Setup(x => x.GetCategoriesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<TicketCategoryResponse>());
+        TicketLookupService.Setup(x => x.GetPrioritiesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<TicketPriorityResponse>());
+        TicketLookupService.Setup(x => x.GetStatusesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<TicketStatusResponse>());
     }
 
     public Mock<IAuthenticationService> AuthenticationService { get; }
+    public Mock<ITicketService> TicketService { get; }
+    public Mock<ITicketLookupService> TicketLookupService { get; }
+    public static Guid TicketId { get; } = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
+    public static Guid CommentId { get; } = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
 
     public HttpClient CreateAuthorizedClient(Guid userId, params string[] roles)
     {
@@ -94,6 +120,10 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<ApplicationDbContext>();
             services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
             services.AddSingleton(AuthenticationService.Object);
+            services.RemoveAll<ITicketService>();
+            services.RemoveAll<ITicketLookupService>();
+            services.AddSingleton(TicketService.Object);
+            services.AddSingleton(TicketLookupService.Object);
         });
     }
 
@@ -107,6 +137,14 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
         Email = "employee@example.test",
         DisplayName = "Test Employee",
         Roles = ["Employee"]
+    };
+
+    private static TicketDetailResponse TicketDetail() => new()
+    {
+        Id = TicketId, TicketNumber = "TKT-TEST", Title = "Test", Description = "Test",
+        CategoryId = 1, CategoryName = "Hardware", PriorityId = 1, PriorityName = "Low",
+        StatusId = 1, StatusName = "Open", CreatedByUserId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+        CreatedByDisplayName = "Test User"
     };
 
     private static CurrentUserResponse CurrentUserResponse(Guid userId) => new()

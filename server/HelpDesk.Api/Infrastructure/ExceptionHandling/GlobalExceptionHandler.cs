@@ -71,6 +71,15 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
         RefreshTokenReuseDetectedException => new(401, "Refresh token rejected", exception.Message, "refresh_token_reuse_detected"),
         UserRegistrationException => new(400, "Registration failed", exception.Message, "registration_failed"),
         AuthenticationTokenIssuanceException => new(500, "Authentication service unavailable", "Authentication credentials could not be issued.", "token_issuance_failed", true),
+        InvalidAuthenticatedPrincipalException => new(401, "Invalid authenticated principal", exception.Message, "invalid_authenticated_principal"),
+        TicketNotFoundException => new(404, "Ticket not found", exception.Message, "ticket_not_found"),
+        CategoryNotFoundException => new(404, "Category not found", exception.Message, "category_not_found"),
+        PriorityNotFoundException => new(404, "Priority not found", exception.Message, "priority_not_found"),
+        StatusNotFoundException => new(404, "Status not found", exception.Message, "status_not_found"),
+        AssignmentTargetNotFoundException => new(404, "Assignment target not found", exception.Message, "assignment_target_not_found"),
+        TicketAccessDeniedException => new(403, "Ticket access denied", exception.Message, "ticket_access_denied"),
+        TicketValidationException => new(400, "Ticket validation failed", exception.Message, "ticket_validation_failed"),
+        TicketStateConflictException => new(409, "Ticket state conflict", exception.Message, "ticket_state_conflict"),
         ArgumentException => new(400, "Invalid request", "One or more request values are invalid.", "invalid_argument"),
         _ => new(500, "Internal server error", "An unexpected error occurred.", "internal_server_error", true)
     };

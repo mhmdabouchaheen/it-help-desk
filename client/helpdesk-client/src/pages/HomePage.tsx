@@ -1,0 +1,2 @@
+import {Link}from'react-router-dom';import { useAuth } from '../auth/AuthProvider'
+export function HomePage() { const { user } = useAuth(); return <section><h1>Welcome, {user?.displayName}</h1><p>Roles: {user?.roles.join(', ')}</p><p>Your backend-authorized visibility determines which tickets you can access.</p><p><Link to="/app/tickets">View tickets</Link> · <Link to="/app/tickets/new">Create a ticket</Link></p></section> }

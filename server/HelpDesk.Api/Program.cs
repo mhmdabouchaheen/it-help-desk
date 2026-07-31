@@ -3,11 +3,14 @@ using System.Text;
 using System.Text.Json;
 using HelpDesk.Api.Application.Auth;
 using HelpDesk.Api.Application.Authorization;
+using HelpDesk.Api.Application.Tickets;
 using HelpDesk.Api.Configuration;
 using HelpDesk.Api.Data;
 using HelpDesk.Api.Entities;
 using HelpDesk.Api.Infrastructure.Auth;
+using HelpDesk.Api.Infrastructure.Authorization;
 using HelpDesk.Api.Infrastructure.ExceptionHandling;
+using HelpDesk.Api.Infrastructure.Tickets;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
@@ -44,6 +47,9 @@ builder.Services.AddOpenApi(options =>
     });
 });
 builder.Services.AddProblemDetails();
+var frontendOrigins = builder.Configuration.GetSection("Frontend:AllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(options => options.AddPolicy("Frontend", policy =>
+    policy.WithOrigins(frontendOrigins).AllowAnyHeader().AllowAnyMethod()));
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services
     .AddControllers()
@@ -155,10 +161,15 @@ builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 builder.Services.AddSingleton<IAccessTokenService, JwtAccessTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<ITicketService, TicketService>();
+builder.Services.AddScoped<ITicketLookupService, TicketLookupService>();
+builder.Services.AddSingleton<ITicketAccessContextFactory, TicketAccessContextFactory>();
+builder.Services.AddSingleton<ITicketNumberGenerator, TicketNumberGenerator>();
 
 var app = builder.Build();
 
 app.UseExceptionHandler();
+app.UseCors("Frontend");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
