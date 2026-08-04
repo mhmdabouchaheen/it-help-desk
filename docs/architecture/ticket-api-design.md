@@ -206,3 +206,18 @@ Attachment upload and download remain deferred.
 active priorities ordered by rank/name, and active statuses ordered by sort
 order/name. All lookup and ticket read queries are no-tracking and return DTOs,
 never EF entities.
+# Support-user assignment directory
+
+`GET /api/support-users` requires the `SupportStaff` policy and returns only active users holding the `Admin` or `IT Support Agent` role. Its response is limited to `id`, `displayName`, and assignment-relevant `roles`; it is not a general employee directory. Results are projected without tracking, de-duplicated by user, and ordered by display name then identifier. Ticket assignment eligibility is independently revalidated by `TicketService`, so a stale directory result cannot bypass backend authorization.
+
+# Protected ticket attachments
+
+Authenticated clients upload `file` as multipart form data to `POST /api/tickets/{ticketId}/attachments`, stream downloads from `GET /api/tickets/{ticketId}/attachments/{attachmentId}`, and soft-delete with `DELETE` on that resource. The maximum is 10 MB. PNG, JPEG, WEBP, PDF, TXT, DOCX, and XLSX are accepted only when extension, declared media type, and bounded signature checks agree. DOCX/XLSX validation verifies only their ZIP signature and does not deeply inspect the archive.
+
+Content is stored behind `IAttachmentStorage` under protected local development storage, outside `wwwroot`, using random opaque keys and SHA-256 metadata. Storage provider, key, hash, and paths never enter API contracts. Employees and managers can upload only to owned non-terminal tickets and download only from owned tickets; support staff can upload/download across accessible tickets. Admin/support can delete broadly, while other users must own both the ticket and upload. Deleted rows are filtered from details and downloads. A missing physical object maps to a safe service-unavailable response. Antivirus scanning is not implemented and is required before production deployment.
+
+# Ticket cancellation
+
+`POST /api/tickets/{ticketId}/cancel` performs final soft cancellation by setting `CancelledAtUtc`; it never deletes the ticket or changes `StatusId`, and there is no synthetic Cancelled status. Admin and IT Support Agent users may cancel any ticket, including terminal tickets. Employees and managers may cancel only their own non-terminal tickets. Repeated requests are idempotent. Cancellation ends the active assignment but preserves assignment/status histories, comments, and attachments.
+
+Cancelled tickets remain visible and readable. Basic edits, assignment, status changes, and attachment uploads are blocked for every role. Support staff may add audit-closure comments; employees and managers may not. Existing attachment download/delete rules remain in force. The optional cancellation reason is accepted and validated but is not persisted because no activity-log application service currently exists; reason text is not logged.

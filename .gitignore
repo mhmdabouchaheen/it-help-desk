@@ -10,3 +10,4 @@ appsettings.Local.json
 *.suo
 .vs/
 .vscode/
+server/HelpDesk.Api/Data/Uploads/

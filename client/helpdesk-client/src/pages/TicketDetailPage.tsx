@@ -1,10 +1,12 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
-import { addTicketCommentAsync, changeTicketStatusAsync } from "../api/tickets";
+import { addTicketCommentAsync, assignTicketAsync, cancelTicketAsync, changeTicketStatusAsync, deleteTicketAttachmentAsync, downloadTicketAttachmentAsync, uploadTicketAttachmentAsync } from "../api/tickets";
+import { ApiProblemError } from "../api/apiClient";
 import { useAuth } from "../auth/AuthProvider";
-import { RoleGroups } from "../auth/roles";
+import { AppRoles, RoleGroups } from "../auth/roles";
 import { useLookups } from "../auth/useLookups";
 import { useTicketDetail } from "../auth/useTicketDetail";
+import { invalidateSupportUsers, useSupportUsers } from "../auth/useSupportUsers";
 import { ErrorSummary, LoadingIndicator } from "../components/Feedback";
 import { formatDate, isGuid } from "../utils/tickets";
 export function TicketDetailPage() {
@@ -23,12 +25,23 @@ function Detail({ id }: { id: string }) {
   const lookups = useLookups();
   const { ticket, setTicket, loading, error, reload } = useTicketDetail(id);
   const support = auth.hasAnyRole(RoleGroups.SupportStaff);
+  const supportUsers = useSupportUsers(support);
   const [statusId, setStatusId] = useState(0);
   const [note, setNote] = useState("");
   const [content, setContent] = useState("");
   const [internal, setInternal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string>();
+  const [assigneeId, setAssigneeId] = useState("");
+  const [assignmentNote, setAssignmentNote] = useState("");
+  const [assigning, setAssigning] = useState(false);
+  const [assignmentAllowed, setAssignmentAllowed] = useState(true);
+  const [attachmentBusy, setAttachmentBusy] = useState<string>();
+  const [attachmentFile, setAttachmentFile] = useState<File>();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [showCancel, setShowCancel] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
   if (loading) return <LoadingIndicator />;
   if (error || !ticket)
     return (
@@ -38,7 +51,11 @@ function Detail({ id }: { id: string }) {
       </section>
     );
   const currentTicket = ticket;
-  const canEdit = support || currentTicket.createdByUserId === auth.user?.userId;
+  const cancelled = currentTicket.cancelledAtUtc !== null;
+  const canEdit = !cancelled && (support || currentTicket.createdByUserId === auth.user?.userId);
+  const terminal = lookups.statuses.find(x=>x.id===currentTicket.statusId)?.isTerminal ?? true;
+  const ownRecognized = currentTicket.createdByUserId===auth.user?.userId && auth.hasAnyRole([AppRoles.Employee,AppRoles.Manager]);
+  const canCancel = !cancelled && (support || ownRecognized && !terminal);
   async function status(e: FormEvent) {
     e.preventDefault();
     if (!statusId || statusId === currentTicket.statusId) return;
@@ -81,6 +98,35 @@ function Detail({ id }: { id: string }) {
       setBusy(false);
     }
   }
+  async function assign(e: FormEvent) {
+    e.preventDefault();
+    if (!support || !assignmentAllowed || assigning || !assigneeId || assigneeId === currentTicket.assignedToUserId ||
+        !supportUsers.users.some((user) => user.id === assigneeId)) return;
+    setAssigning(true); setActionError(undefined);
+    try {
+      setTicket(await assignTicketAsync(id, { assignedToUserId: assigneeId, note: assignmentNote.trim() || null }));
+      setAssignmentNote("");
+    } catch (error) {
+      if (error instanceof ApiProblemError && error.code === "assignment_target_not_found") {
+        setActionError("The selected support user is no longer available. Reload the support-user list and try again.");
+        invalidateSupportUsers(); supportUsers.reload();
+      } else if (error instanceof ApiProblemError && error.code === "ticket_state_conflict") {
+        setActionError("The ticket changed while you were assigning it. Reload the ticket and try again.");
+      } else if (error instanceof ApiProblemError && (error.code === "access_forbidden" || error.code === "ticket_access_denied")) {
+        setAssignmentAllowed(false); setActionError("You are no longer authorized to assign this ticket.");
+      } else setActionError("The ticket could not be assigned.");
+    } finally { setAssigning(false) }
+  }
+  function chooseAttachment(e: ChangeEvent<HTMLInputElement>) {
+    const file=e.target.files?.[0];setActionError(undefined);if(!file){setAttachmentFile(undefined);return}
+    const extension=`.${file.name.split('.').pop()?.toLowerCase()}`;
+    if(!['.png','.jpg','.jpeg','.webp','.pdf','.txt','.docx','.xlsx'].includes(extension)){setActionError('That file type is not allowed.');e.target.value='';return}
+    if(file.size<=0||file.size>10*1024*1024){setActionError('Attachments must be between 1 byte and 10 MB.');e.target.value='';return}setAttachmentFile(file)
+  }
+  async function uploadAttachment(e:FormEvent){e.preventDefault();if(!attachmentFile||attachmentBusy)return;setAttachmentBusy('upload');setActionError(undefined);try{const uploaded=await uploadTicketAttachmentAsync(id,attachmentFile);setTicket({...currentTicket,attachments:[...currentTicket.attachments,uploaded]});setAttachmentFile(undefined);if(fileInput.current)fileInput.current.value=''}catch(error){setActionError(error instanceof ApiProblemError&&error.code==='attachment_too_large'?'The attachment exceeds the 10 MB limit.':error instanceof ApiProblemError&&error.code==='attachment_validation_failed'?'The attachment did not pass validation.':'The attachment could not be uploaded.')}finally{setAttachmentBusy(undefined)}}
+  async function downloadAttachment(attachmentId:string,fileName:string){if(attachmentBusy)return;setAttachmentBusy(attachmentId);setActionError(undefined);try{const blob=await downloadTicketAttachmentAsync(id,attachmentId);const url=URL.createObjectURL(blob);try{const link=document.createElement('a');link.href=url;link.download=fileName;link.click()}finally{URL.revokeObjectURL(url)}}catch{setActionError('The attachment could not be downloaded.')}finally{setAttachmentBusy(undefined)}}
+  async function deleteAttachment(attachmentId:string){if(attachmentBusy||!window.confirm('Delete this attachment?'))return;setAttachmentBusy(attachmentId);setActionError(undefined);try{await deleteTicketAttachmentAsync(id,attachmentId);setTicket({...currentTicket,attachments:currentTicket.attachments.filter(x=>x.id!==attachmentId)})}catch{setActionError('The attachment could not be deleted.')}finally{setAttachmentBusy(undefined)}}
+  async function cancelTicket(e:FormEvent){e.preventDefault();if(!canCancel||cancelling||cancelReason.length>500)return;setCancelling(true);setActionError(undefined);try{setTicket(await cancelTicketAsync(id,{reason:cancelReason.trim()||null}));setShowCancel(false);setCancelReason('')}catch{setActionError('The ticket could not be cancelled. It may have changed or you may no longer have access.')}finally{setCancelling(false)}}
   return (
     <section className="ticket-detail">
       <div className="page-heading">
@@ -124,18 +170,33 @@ function Detail({ id }: { id: string }) {
         <h2>Description</h2>
         <p className="preserve-lines">{ticket.description}</p>
       </section>
-      <ErrorSummary message={actionError} />
-      {support && (
+      {cancelled&&<section role="status"><h2>Cancelled</h2><p>This cancellation is final. Cancelled on {formatDate(ticket.cancelledAtUtc!)}. The workflow status remains {ticket.statusName}.</p></section>}
+      {canCancel&&<section><h2>Cancel ticket</h2>{!showCancel?<button type="button" onClick={()=>setShowCancel(true)}>Cancel ticket</button>:<form onSubmit={cancelTicket}><p>This permanently makes the ticket read-only. Its history and attachments will be preserved.</p><label>Optional cancellation reason<textarea maxLength={500} value={cancelReason} onChange={e=>setCancelReason(e.target.value)}/></label><button disabled={cancelling}>{cancelling?'Cancelling…':'Confirm cancellation'}</button><button type="button" disabled={cancelling} onClick={()=>setShowCancel(false)}>Keep ticket</button></form>}</section>}
+      <div id="action-error" aria-live="polite"><ErrorSummary message={actionError} /></div>
+      {!cancelled && support && assignmentAllowed && (
         <section>
           <h2>Assignment</h2>
-          <button disabled>Assign ticket</button>
-          <p>
-            A safe support-user directory is not available yet. Assignment is
-            disabled.
-          </p>
+          <p>Current assignee: {ticket.assignedToDisplayName ?? "Unassigned"}</p>
+          {supportUsers.isLoading && <p role="status">Loading eligible support users…</p>}
+          {supportUsers.error ? <div><p id="assignment-error" role="alert">{supportUsers.error}</p><button type="button" onClick={supportUsers.reload}>Retry support-user list</button></div> :
+          <form onSubmit={assign} aria-describedby={actionError ? "action-error" : undefined}>
+            <label>Eligible support user
+              <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} disabled={supportUsers.isLoading || assigning}>
+                <option value="">Select a support user</option>
+                {supportUsers.users.map((user) => <option key={user.id} value={user.id}>{user.displayName} — {user.roles.join(", ")}</option>)}
+              </select>
+            </label>
+            <label>Optional assignment note
+              <textarea maxLength={1000} value={assignmentNote} onChange={(e) => setAssignmentNote(e.target.value)} disabled={assigning}/>
+            </label>
+            <button disabled={assigning || supportUsers.isLoading || !assigneeId || assigneeId === ticket.assignedToUserId}>
+              {assigning ? "Assigning…" : ticket.assignedToUserId ? "Reassign ticket" : "Assign ticket"}
+            </button>
+            <span role="status" className="sr-only">{assigning ? "Assignment is being submitted." : ""}</span>
+          </form>}
         </section>
       )}
-      {support && (
+      {!cancelled && support && (
         <section>
           <h2>Change status</h2>
           <form onSubmit={status}>
@@ -184,7 +245,7 @@ function Detail({ id }: { id: string }) {
             ))}
           </ul>
         )}
-        <form onSubmit={comment}>
+        {(!cancelled||support)&&<form onSubmit={comment}>
           <label>
             Add comment
             <textarea
@@ -203,7 +264,7 @@ function Detail({ id }: { id: string }) {
             </label>
           )}
           <button disabled={busy}>Add comment</button>
-        </form>
+        </form>}
       </section>
       <section>
         <h2>Assignment history</h2>
@@ -241,14 +302,20 @@ function Detail({ id }: { id: string }) {
       </section>
       <section>
         <h2>Attachments</h2>
+        {!cancelled&&<form onSubmit={uploadAttachment}>
+          <label>Upload attachment
+            <input ref={fileInput} type="file" accept=".png,.jpg,.jpeg,.webp,.pdf,.txt,.docx,.xlsx" onChange={chooseAttachment} disabled={attachmentBusy!==undefined}/>
+          </label>
+          <button disabled={!attachmentFile||attachmentBusy!==undefined}>{attachmentBusy==='upload'?'Uploading…':'Upload attachment'}</button>
+        </form>}
         {ticket.attachments.length === 0 ? (
-          <p>No attachment metadata.</p>
+          <p>No attachments.</p>
         ) : (
-          <ul>
+          <ul className="history">
             {ticket.attachments.map((x) => (
               <li key={x.id}>
-                {x.originalFileName} ({x.contentType}, {x.sizeBytes} bytes) —
-                upload and download are not available yet.
+                <strong>{x.originalFileName}</strong> ({x.contentType}, {formatSize(x.sizeBytes)}) · uploaded by {x.uploadedByDisplayName} on {formatDate(x.createdAtUtc)}
+                <div><button type="button" disabled={attachmentBusy!==undefined} onClick={()=>downloadAttachment(x.id,x.originalFileName)}>Download</button>{(support||(ticket.createdByUserId===auth.user?.userId&&x.uploadedByUserId===auth.user?.userId))&&<button type="button" disabled={attachmentBusy!==undefined} onClick={()=>deleteAttachment(x.id)}>Delete</button>}</div>
               </li>
             ))}
           </ul>
@@ -257,3 +324,5 @@ function Detail({ id }: { id: string }) {
     </section>
   );
 }
+
+function formatSize(bytes:number){if(bytes<1024)return `${bytes} bytes`;if(bytes<1024*1024)return `${(bytes/1024).toFixed(1)} KB`;return `${(bytes/(1024*1024)).toFixed(1)} MB`}

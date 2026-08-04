@@ -20,3 +20,6 @@ The expected applied migrations are:
 - `20260720100526_AddRefreshTokens`
 
 Always confirm the effective connection targets the intended local development database before running a database update.
+# Local attachment storage
+
+Development attachments are created automatically under `server/HelpDesk.Api/Data/Uploads` (relative to the API working directory) and that directory is ignored by Git. Back up required files before deleting this directory: removing it permanently loses attachment content even though database metadata may remain. Do not place this directory under `wwwroot` or expose it through static-file middleware.

@@ -47,19 +47,24 @@ async function refreshOnce(): Promise<boolean> {
   return refreshPromise
 }
 
-export async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
+export async function apiResponse(path: string, options: ApiOptions = {}): Promise<Response> {
   const { skipRefresh = false, headers: suppliedHeaders, ...requestOptions } = options
   const headers = new Headers(suppliedHeaders)
   headers.set('Accept', 'application/json')
-  if (requestOptions.body != null) headers.set('Content-Type', 'application/json')
+  if (requestOptions.body != null && !(requestOptions.body instanceof FormData)) headers.set('Content-Type', 'application/json')
   const accessToken = tokenStore.getAccessToken()
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
   const response = await fetch(`${apiBaseUrl}${path}`, { ...requestOptions, headers })
   if (response.status === 401 && !skipRefresh && accessToken && tokenStore.getRefreshToken() &&
       !path.startsWith('/api/auth/')) {
-    if (await refreshOnce()) return apiRequest<T>(path, { ...options, skipRefresh: true })
+    if (await refreshOnce()) return apiResponse(path, { ...options, skipRefresh: true })
   }
   if (!response.ok) throw await parseError(response)
+  return response
+}
+
+export async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
+  const response = await apiResponse(path, options)
   if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
 }

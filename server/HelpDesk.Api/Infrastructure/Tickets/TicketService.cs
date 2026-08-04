@@ -192,6 +192,8 @@ public sealed class TicketService(
             item => item.Id == ticketId, cancellationToken);
         if (ticket is null || !support && ticket.CreatedByUserId != accessContext.UserId)
             throw new TicketNotFoundException();
+        if (ticket.CancelledAtUtc is not null)
+            throw new TicketStateConflictException();
 
         if (!support)
         {
@@ -238,6 +240,8 @@ public sealed class TicketService(
 
         var ticket = await dbContext.Tickets.SingleOrDefaultAsync(x => x.Id == ticketId, cancellationToken)
             ?? throw new TicketNotFoundException();
+        if (ticket.CancelledAtUtc is not null)
+            throw new TicketStateConflictException();
         if (await IsTerminalAsync(ticket.StatusId, cancellationToken))
             throw new TicketStateConflictException();
         if (!await IsSupportAssignmentTargetAsync(request.AssignedToUserId, cancellationToken))
@@ -296,6 +300,8 @@ public sealed class TicketService(
 
         var ticket = await dbContext.Tickets.SingleOrDefaultAsync(x => x.Id == ticketId, cancellationToken)
             ?? throw new TicketNotFoundException();
+        if (ticket.CancelledAtUtc is not null)
+            throw new TicketStateConflictException();
         var currentStatus = await dbContext.Statuses.AsNoTracking()
             .SingleOrDefaultAsync(x => x.Id == ticket.StatusId, cancellationToken)
             ?? throw new StatusNotFoundException();
@@ -348,6 +354,8 @@ public sealed class TicketService(
         var ticket = await dbContext.Tickets.SingleOrDefaultAsync(x => x.Id == ticketId, cancellationToken);
         if (ticket is null || !support && ticket.CreatedByUserId != accessContext.UserId)
             throw new TicketNotFoundException();
+        if (ticket.CancelledAtUtc is not null && !support)
+            throw new TicketStateConflictException();
         if (request.IsInternal && !support)
             throw new TicketAccessDeniedException();
         if (!support && await IsTerminalAsync(ticket.StatusId, cancellationToken))
@@ -389,6 +397,25 @@ public sealed class TicketService(
             CreatedAtUtc = comment.CreatedAtUtc,
             UpdatedAtUtc = comment.UpdatedAtUtc
         };
+    }
+
+    /// <inheritdoc />
+    public async Task<TicketDetailResponse> CancelAsync(Guid ticketId, CancelTicketRequest request,
+        TicketAccessContext accessContext, CancellationToken cancellationToken = default)
+    {
+        if (ticketId == Guid.Empty) throw new TicketValidationException();
+        ArgumentNullException.ThrowIfNull(request);
+        var support = ValidateAccess(accessContext);
+        var ticket = await dbContext.Tickets.SingleOrDefaultAsync(x => x.Id == ticketId, cancellationToken);
+        if (ticket is null || !support && ticket.CreatedByUserId != accessContext.UserId) throw new TicketNotFoundException();
+        if (ticket.CancelledAtUtc is not null) return await GetByIdAsync(ticketId, accessContext, cancellationToken);
+        if (!support && await IsTerminalAsync(ticket.StatusId, cancellationToken)) throw new TicketStateConflictException();
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        ticket.CancelledAtUtc = now; ticket.UpdatedAtUtc = now;
+        var assignment = await dbContext.TicketAssignments.SingleOrDefaultAsync(x => x.TicketId == ticketId && x.EndedAtUtc == null, cancellationToken);
+        if (assignment is not null) { assignment.EndedAtUtc = now; assignment.EndedByUserId = accessContext.UserId; ticket.AssignedToUserId = null; }
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return await GetByIdAsync(ticketId, accessContext, cancellationToken);
     }
 
     private void RequireSupport(TicketAccessContext accessContext)
@@ -546,6 +573,7 @@ public sealed class TicketService(
                 : dbContext.Users.Where(x => x.Id == ticket.AssignedToUserId).Select(x => x.DisplayName).FirstOrDefault(),
             CreatedAtUtc = ticket.CreatedAtUtc,
             UpdatedAtUtc = ticket.UpdatedAtUtc
+            ,CancelledAtUtc = ticket.CancelledAtUtc
         });
 
     private IQueryable<TicketDetailResponse> ProjectDetails(IQueryable<Ticket> query) =>

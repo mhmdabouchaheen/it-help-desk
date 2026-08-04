@@ -9,8 +9,6 @@ public sealed class TicketDetailResponse : TicketSummaryResponse
     public DateTime? ResolvedAtUtc { get; init; }
     /// <summary>Gets the optional closure time.</summary>
     public DateTime? ClosedAtUtc { get; init; }
-    /// <summary>Gets the optional cancellation time.</summary>
-    public DateTime? CancelledAtUtc { get; init; }
     /// <summary>Gets ticket comments.</summary>
     public IReadOnlyList<TicketCommentResponse> Comments { get; init; } = Array.Empty<TicketCommentResponse>();
     /// <summary>Gets attachment metadata.</summary>

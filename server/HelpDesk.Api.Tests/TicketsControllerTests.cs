@@ -53,6 +53,10 @@ public class TicketsControllerTests
     }
 
     [Fact]
+    public async Task Cancel_DelegatesOnce_ForwardsContextAndReturnsOk()
+    { var(controller,service,factory,principal,access)=TicketController();var request=new CancelTicketRequest{Reason="reason"};var token=new CancellationTokenSource().Token;service.Setup(x=>x.CancelAsync(AuthApiFactory.TicketId,request,access,token)).ReturnsAsync(Detail());var result=await controller.CancelAsync(AuthApiFactory.TicketId,request,token);Assert.IsType<OkObjectResult>(result.Result);service.Verify(x=>x.CancelAsync(AuthApiFactory.TicketId,request,access,token),Times.Once);factory.Verify(x=>x.Create(principal),Times.Once); }
+
+    [Fact]
     public async Task LookupController_DelegatesEachOperation()
     {
         var service = new Mock<ITicketLookupService>();

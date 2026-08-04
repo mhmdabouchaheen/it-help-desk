@@ -100,3 +100,14 @@ creation reloads detail to preserve server ordering. Dates display locally via
 
 Role checks control presentation only. Backend authorization and ProblemDetails
 remain authoritative. No fake ticket or user data is used.
+# Support-user directory and assignment
+
+Support-staff ticket detail views load `GET /api/support-users` through the authenticated API client. A shared, memory-only cache coalesces concurrent requests and supports retry; it is never written to local or session storage. The assignment form selects only returned user identifiers, shows display names and relevant roles, and has no raw GUID field. Successful responses replace ticket detail immediately without an optimistic update. Stale targets refresh the directory and produce a safe message. Frontend role checks control presentation only: the endpoint policy and `TicketService` remain authoritative.
+
+# Attachments
+
+Ticket details render only safe attachment metadata. Uploads use authenticated multipart requests and client-side size/extension checks as convenience checks; backend content and access validation remains authoritative. Downloads use the authenticated client to obtain a Blob, trigger a temporary object URL, and revoke it immediately—no protected endpoint is rendered as a plain link. Deletes require confirmation and update the UI only after server success. Untrusted documents are not previewed, and storage provider, key, hash, or paths are never exposed.
+
+# Ticket cancellation
+
+Eligible ticket-detail views expose an accessible two-step cancellation section with an optional 500-character reason. No optimistic state is applied: the returned detail replaces local state. Cancelled details show the authoritative timestamp and final-state explanation while retaining the actual workflow status, histories, comments, and attachment downloads. Prohibited edit, assignment, status, upload, and non-support comment controls are hidden. Ticket lists show a separate Cancelled marker alongside the real status. Role checks are presentation-only; backend ownership, terminal-state, and authorization rules remain authoritative.

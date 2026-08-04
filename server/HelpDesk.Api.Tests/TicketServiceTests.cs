@@ -512,6 +512,29 @@ public sealed class TicketServiceTests
             ticket.Id, new() { Content = "hello" }, fixture.Access(fixture.InactiveUserId, AppRoles.Admin)));
     }
 
+    [Theory]
+    [InlineData(AppRoles.Admin)] [InlineData(AppRoles.ItSupportAgent)] [InlineData(AppRoles.Employee)] [InlineData(AppRoles.Manager)]
+    public async Task Cancel_EligibleCaller_SetsTimestamp_PreservesStatusAndHistory_EndsAssignment(string role)
+    {
+        await using var fixture=await Fixture.CreateAsync();var(ticket,_)=await fixture.AddTicketsAsync();await fixture.AddHistoryAsync(ticket);var status=ticket.StatusId;
+        var result=await fixture.Service.CancelAsync(ticket.Id,new(){Reason="  not persisted  "},fixture.Access(fixture.OwnerId,role));
+        Assert.Equal(fixture.Now.UtcDateTime,result.CancelledAtUtc);Assert.Equal(fixture.Now.UtcDateTime,result.UpdatedAtUtc);Assert.Equal(status,result.StatusId);
+        Assert.Single(result.Comments);Assert.Single(result.Attachments);Assert.Single(result.AssignmentHistory);Assert.Single(result.StatusHistory);
+        Assert.Equal(fixture.Now.UtcDateTime,result.AssignmentHistory[0].EndedAtUtc);Assert.Equal(fixture.OwnerId,result.AssignmentHistory[0].EndedByUserId);Assert.Null(result.AssignedToUserId);
+    }
+
+    [Theory] [InlineData(AppRoles.Employee)] [InlineData(AppRoles.Manager)]
+    public async Task Cancel_NonSupportCannotCancelOtherOrTerminalTicket(string role)
+    { await using var fixture=await Fixture.CreateAsync();var(owner,other)=await fixture.AddTicketsAsync(terminal:true);await Assert.ThrowsAsync<TicketNotFoundException>(()=>fixture.Service.CancelAsync(other.Id,new(),fixture.Access(fixture.OwnerId,role)));await Assert.ThrowsAsync<TicketStateConflictException>(()=>fixture.Service.CancelAsync(owner.Id,new(),fixture.Access(fixture.OwnerId,role))); }
+
+    [Theory] [InlineData(AppRoles.Admin)] [InlineData(AppRoles.ItSupportAgent)]
+    public async Task Cancel_SupportMayCancelTerminalTicket_AndRepeatedCallIsIdempotent(string role)
+    { await using var fixture=await Fixture.CreateAsync();var(ticket,_)=await fixture.AddTicketsAsync(terminal:true);var access=fixture.Access(fixture.OwnerId,role);var first=await fixture.Service.CancelAsync(ticket.Id,new(),access);var second=await fixture.Service.CancelAsync(ticket.Id,new(),access);Assert.Equal(first.CancelledAtUtc,second.CancelledAtUtc);Assert.Equal((short)5,second.StatusId); }
+
+    [Fact]
+    public async Task CancelledTicket_BlocksMutations_ButSupportMayComment()
+    { await using var fixture=await Fixture.CreateAsync();var(ticket,_)=await fixture.AddTicketsAsync();var admin=fixture.Access(fixture.OwnerId,AppRoles.Admin);await fixture.Service.CancelAsync(ticket.Id,new(),admin);await Assert.ThrowsAsync<TicketStateConflictException>(()=>fixture.Service.UpdateAsync(ticket.Id,ValidUpdate(),admin));await Assert.ThrowsAsync<TicketStateConflictException>(()=>fixture.Service.AssignAsync(ticket.Id,new(){AssignedToUserId=fixture.OtherId},admin));await Assert.ThrowsAsync<TicketStateConflictException>(()=>fixture.Service.ChangeStatusAsync(ticket.Id,new(){StatusId=2},admin));await Assert.ThrowsAsync<TicketStateConflictException>(()=>fixture.Service.AddCommentAsync(ticket.Id,new(){Content="employee"},fixture.Access()));var comment=await fixture.Service.AddCommentAsync(ticket.Id,new(){Content="audit"},admin);Assert.Equal("audit",comment.Body); }
+
     private static CreateTicketRequest ValidCreate(string title = "Title", short categoryId = 1, short priorityId = 1) =>
         new() { Title = title, Description = "Description", CategoryId = categoryId, PriorityId = priorityId };
     private static UpdateTicketRequest ValidUpdate() =>

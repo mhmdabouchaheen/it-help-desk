@@ -185,7 +185,7 @@ export function TicketListPage() {
                       {t.ticketNumber}: {t.title}
                     </Link>
                   </td>
-                  <td>{t.statusName}</td>
+                  <td>{t.statusName} {t.cancelledAtUtc&&<mark>Cancelled</mark>}</td>
                   <td>{t.priorityName}</td>
                   <td>{t.categoryName}</td>
                   <td>{t.createdByDisplayName}</td>

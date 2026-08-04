@@ -20,4 +20,6 @@ public interface ITicketService
     Task<TicketDetailResponse> ChangeStatusAsync(Guid ticketId, ChangeTicketStatusRequest request, TicketAccessContext accessContext, CancellationToken cancellationToken = default);
     /// <summary>Adds a comment to an accessible ticket.</summary>
     Task<TicketCommentResponse> AddCommentAsync(Guid ticketId, AddTicketCommentRequest request, TicketAccessContext accessContext, CancellationToken cancellationToken = default);
+    /// <summary>Soft-cancels an accessible ticket without changing its status.</summary>
+    Task<TicketDetailResponse> CancelAsync(Guid ticketId, CancelTicketRequest request, TicketAccessContext accessContext, CancellationToken cancellationToken = default);
 }

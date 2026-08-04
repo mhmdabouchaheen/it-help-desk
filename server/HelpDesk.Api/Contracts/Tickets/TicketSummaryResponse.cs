@@ -33,4 +33,6 @@ public class TicketSummaryResponse
     public DateTime CreatedAtUtc { get; init; }
     /// <summary>Gets the last update time.</summary>
     public DateTime UpdatedAtUtc { get; init; }
+    /// <summary>Gets the cancellation time, or null when the ticket has not been cancelled.</summary>
+    public DateTime? CancelledAtUtc { get; init; }
 }

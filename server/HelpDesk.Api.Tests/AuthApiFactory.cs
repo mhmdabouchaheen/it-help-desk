@@ -3,10 +3,13 @@ using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text;
 using HelpDesk.Api.Application.Auth;
+using HelpDesk.Api.Application.Attachments;
 using HelpDesk.Api.Application.Tickets;
+using HelpDesk.Api.Application.Users;
 using HelpDesk.Api.Contracts.Auth;
 using HelpDesk.Api.Contracts.Common;
 using HelpDesk.Api.Contracts.Tickets;
+using HelpDesk.Api.Contracts.Users;
 using HelpDesk.Api.Data;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -29,6 +32,7 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
     public AuthApiFactory()
     {
         AuthenticationService = new Mock<IAuthenticationService>();
+        TicketAttachmentService = new Mock<ITicketAttachmentService>();
         AuthenticationService.Setup(service => service.RegisterAsync(
                 It.IsAny<RegisterRequest>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(AuthResponse());
@@ -46,6 +50,9 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
             .ReturnsAsync((Guid userId, CancellationToken _) => CurrentUserResponse(userId));
         TicketService = new Mock<ITicketService>();
         TicketLookupService = new Mock<ITicketLookupService>();
+        SupportUserDirectoryService = new Mock<ISupportUserDirectoryService>();
+        SupportUserDirectoryService.Setup(x => x.GetEligibleSupportUsersAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new SupportUserResponse { Id = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), DisplayName = "Support User", Roles = ["IT Support Agent"] }]);
         TicketService.Setup(x => x.CreateAsync(It.IsAny<CreateTicketRequest>(), It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TicketDetail());
         TicketService.Setup(x => x.GetPagedAsync(It.IsAny<TicketListRequest>(), It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
@@ -60,14 +67,22 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
             .ReturnsAsync(TicketDetail());
         TicketService.Setup(x => x.AddCommentAsync(It.IsAny<Guid>(), It.IsAny<AddTicketCommentRequest>(), It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TicketCommentResponse { Id = CommentId, TicketId = TicketId, Body = "ok", Visibility = "Public" });
+        TicketService.Setup(x => x.CancelAsync(It.IsAny<Guid>(), It.IsAny<CancelTicketRequest>(), It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TicketDetail());
         TicketLookupService.Setup(x => x.GetCategoriesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<TicketCategoryResponse>());
         TicketLookupService.Setup(x => x.GetPrioritiesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<TicketPriorityResponse>());
         TicketLookupService.Setup(x => x.GetStatusesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<TicketStatusResponse>());
+        TicketAttachmentService.Setup(x => x.UploadAsync(It.IsAny<Guid>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TicketAttachmentResponse { Id = Guid.Parse("abababab-abab-abab-abab-abababababab"), TicketId = TicketId, OriginalFileName = "safe.txt", ContentType = "text/plain", SizeBytes = 4, UploadedByUserId = Guid.NewGuid(), UploadedByDisplayName = "Uploader" });
+        TicketAttachmentService.Setup(x => x.DownloadAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AttachmentDownloadResult(new MemoryStream("safe"u8.ToArray()), "text/plain", "safe.txt", 4));
     }
 
     public Mock<IAuthenticationService> AuthenticationService { get; }
     public Mock<ITicketService> TicketService { get; }
     public Mock<ITicketLookupService> TicketLookupService { get; }
+    public Mock<ITicketAttachmentService> TicketAttachmentService { get; }
+    public Mock<ISupportUserDirectoryService> SupportUserDirectoryService { get; }
     public static Guid TicketId { get; } = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
     public static Guid CommentId { get; } = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
 
@@ -117,13 +132,17 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IAuthenticationService>();
+            services.RemoveAll<ITicketAttachmentService>();
             services.RemoveAll<ApplicationDbContext>();
             services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
             services.AddSingleton(AuthenticationService.Object);
+            services.AddSingleton(TicketAttachmentService.Object);
             services.RemoveAll<ITicketService>();
             services.RemoveAll<ITicketLookupService>();
+            services.RemoveAll<ISupportUserDirectoryService>();
             services.AddSingleton(TicketService.Object);
             services.AddSingleton(TicketLookupService.Object);
+            services.AddSingleton(SupportUserDirectoryService.Object);
         });
     }
 

@@ -70,5 +70,13 @@ public sealed class TicketsController(
         return Created($"/api/tickets/{ticketId}/comments/{comment.Id}", comment);
     }
 
+    [HttpPost("{ticketId:guid}/cancel")]
+    [ProducesResponseType(typeof(TicketDetailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<TicketDetailResponse>> CancelAsync(Guid ticketId, [FromBody] CancelTicketRequest request, CancellationToken cancellationToken) =>
+        Ok(await ticketService.CancelAsync(ticketId, request, Access(), cancellationToken));
+
     private TicketAccessContext Access() => accessContextFactory.Create(User);
 }

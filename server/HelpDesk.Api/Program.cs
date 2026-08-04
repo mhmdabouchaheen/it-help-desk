@@ -2,15 +2,19 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using HelpDesk.Api.Application.Auth;
+using HelpDesk.Api.Application.Attachments;
 using HelpDesk.Api.Application.Authorization;
 using HelpDesk.Api.Application.Tickets;
+using HelpDesk.Api.Application.Users;
 using HelpDesk.Api.Configuration;
 using HelpDesk.Api.Data;
 using HelpDesk.Api.Entities;
 using HelpDesk.Api.Infrastructure.Auth;
+using HelpDesk.Api.Infrastructure.Attachments;
 using HelpDesk.Api.Infrastructure.Authorization;
 using HelpDesk.Api.Infrastructure.ExceptionHandling;
 using HelpDesk.Api.Infrastructure.Tickets;
+using HelpDesk.Api.Infrastructure.Users;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
@@ -47,6 +51,14 @@ builder.Services.AddOpenApi(options =>
     });
 });
 builder.Services.AddProblemDetails();
+builder.Services.AddOptions<AttachmentOptions>()
+    .Bind(builder.Configuration.GetSection(AttachmentOptions.SectionName))
+    .Validate(x => !string.IsNullOrWhiteSpace(x.StorageRoot), "Attachment storage root must not be blank.")
+    .Validate(x => x.MaxFileSizeBytes > 0, "Attachment maximum size must be positive.")
+    .Validate(x => x.AllowedContentTypes.Length > 0 && x.AllowedContentTypes.All(v => !string.IsNullOrWhiteSpace(v) && !v.Contains('*')), "Attachment content types must be explicit.")
+    .Validate(x => x.AllowedExtensions.Length > 0, "Attachment extensions must not be empty.")
+    .Validate(x => x.AllowedExtensions.All(v => new[] { ".png", ".jpg", ".jpeg", ".webp", ".pdf", ".txt", ".docx", ".xlsx" }.Contains(v.StartsWith('.') ? v.ToLowerInvariant() : "." + v.ToLowerInvariant())), "Attachment extensions contain an unsafe or unsupported value.")
+    .ValidateOnStart();
 var frontendOrigins = builder.Configuration.GetSection("Frontend:AllowedOrigins").Get<string[]>() ?? [];
 builder.Services.AddCors(options => options.AddPolicy("Frontend", policy =>
     policy.WithOrigins(frontendOrigins).AllowAnyHeader().AllowAnyMethod()));
@@ -161,8 +173,11 @@ builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 builder.Services.AddSingleton<IAccessTokenService, JwtAccessTokenService>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddSingleton<IAttachmentStorage, LocalAttachmentStorage>();
+builder.Services.AddScoped<ITicketAttachmentService, TicketAttachmentService>();
 builder.Services.AddScoped<ITicketService, TicketService>();
 builder.Services.AddScoped<ITicketLookupService, TicketLookupService>();
+builder.Services.AddScoped<ISupportUserDirectoryService, SupportUserDirectoryService>();
 builder.Services.AddSingleton<ITicketAccessContextFactory, TicketAccessContextFactory>();
 builder.Services.AddSingleton<ITicketNumberGenerator, TicketNumberGenerator>();
 
