@@ -29,17 +29,17 @@ internal static class TicketSqliteDatabase
             );
             CREATE TABLE "Categories" (
                 "Id" INTEGER PRIMARY KEY, "Name" TEXT NOT NULL, "Description" TEXT,
-                "SortOrder" INTEGER NOT NULL, "IsActive" INTEGER NOT NULL,
+                "SortOrder" INTEGER NOT NULL, "IsActive" INTEGER NOT NULL DEFAULT 1,
                 "CreatedAtUtc" TEXT NOT NULL, "UpdatedAtUtc" TEXT NOT NULL
             );
             CREATE TABLE "Priorities" (
                 "Id" INTEGER PRIMARY KEY, "Name" TEXT NOT NULL, "Rank" INTEGER NOT NULL,
-                "Description" TEXT, "IsActive" INTEGER NOT NULL,
+                "Description" TEXT, "IsActive" INTEGER NOT NULL DEFAULT 1,
                 "CreatedAtUtc" TEXT NOT NULL, "UpdatedAtUtc" TEXT NOT NULL
             );
             CREATE TABLE "Statuses" (
                 "Id" INTEGER PRIMARY KEY, "Name" TEXT NOT NULL, "Description" TEXT,
-                "SortOrder" INTEGER NOT NULL, "IsTerminal" INTEGER NOT NULL, "IsActive" INTEGER NOT NULL,
+                "SortOrder" INTEGER NOT NULL, "IsTerminal" INTEGER NOT NULL DEFAULT 0, "IsActive" INTEGER NOT NULL DEFAULT 1,
                 "CreatedAtUtc" TEXT NOT NULL, "UpdatedAtUtc" TEXT NOT NULL
             );
             CREATE TABLE "Tickets" (

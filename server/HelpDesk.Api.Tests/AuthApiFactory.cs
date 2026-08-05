@@ -4,10 +4,12 @@ using System.Security.Claims;
 using System.Text;
 using HelpDesk.Api.Application.Auth;
 using HelpDesk.Api.Application.Attachments;
+using HelpDesk.Api.Application.Dashboard;
 using HelpDesk.Api.Application.Tickets;
 using HelpDesk.Api.Application.Users;
 using HelpDesk.Api.Contracts.Auth;
 using HelpDesk.Api.Contracts.Common;
+using HelpDesk.Api.Contracts.Dashboard;
 using HelpDesk.Api.Contracts.Tickets;
 using HelpDesk.Api.Contracts.Users;
 using HelpDesk.Api.Data;
@@ -33,6 +35,9 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
     {
         AuthenticationService = new Mock<IAuthenticationService>();
         TicketAttachmentService = new Mock<ITicketAttachmentService>();
+        DashboardService = new Mock<IDashboardService>();
+        DashboardService.Setup(x => x.GetDashboardAsync(It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DashboardResponse());
         AuthenticationService.Setup(service => service.RegisterAsync(
                 It.IsAny<RegisterRequest>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(AuthResponse());
@@ -82,6 +87,7 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
     public Mock<ITicketService> TicketService { get; }
     public Mock<ITicketLookupService> TicketLookupService { get; }
     public Mock<ITicketAttachmentService> TicketAttachmentService { get; }
+    public Mock<IDashboardService> DashboardService { get; }
     public Mock<ISupportUserDirectoryService> SupportUserDirectoryService { get; }
     public static Guid TicketId { get; } = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
     public static Guid CommentId { get; } = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
@@ -138,9 +144,11 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
             services.AddSingleton(AuthenticationService.Object);
             services.AddSingleton(TicketAttachmentService.Object);
             services.RemoveAll<ITicketService>();
+            services.RemoveAll<IDashboardService>();
             services.RemoveAll<ITicketLookupService>();
             services.RemoveAll<ISupportUserDirectoryService>();
             services.AddSingleton(TicketService.Object);
+            services.AddSingleton(DashboardService.Object);
             services.AddSingleton(TicketLookupService.Object);
             services.AddSingleton(SupportUserDirectoryService.Object);
         });

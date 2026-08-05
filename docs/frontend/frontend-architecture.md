@@ -1,5 +1,11 @@
 # Frontend architecture
 
+## Dashboard
+
+`/app/home` remains the authenticated landing route and its navigation label is Dashboard. It loads `GET /api/dashboard` with the shared bearer client, sends no identity or role filters, aborts on unmount, ignores stale responses, and does not persist analytics. Loading is announced; 403 and generic errors are safe and retryable.
+
+The page renders backend-authoritative KPI cards, a Recharts status pie, priority and horizontal category bars, a six-month Created/Closed/Cancelled line chart, and eight safe recent-ticket links. Every visualization has a nearby list or table alternative. UTC month labels are formatted without timezone shifting. Cancelled remains separate from real statuses. Frontend roles affect explanatory copy only: support users see organization-wide wording and other recognized roles see owned-ticket wording. No counts or chart data are fabricated or recomputed from ticket lists.
+
 The existing `client/helpdesk-client` Vite application is the web client. It
 uses React 19, strict TypeScript, React Router, native `fetch`, Vitest, jsdom,
 and React Testing Library. Authentication is the only implemented feature;

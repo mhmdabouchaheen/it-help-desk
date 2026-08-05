@@ -1,0 +1,5 @@
+export interface DashboardSummaryResponse { totalTickets:number;openTickets:number;inProgressTickets:number;pendingTickets:number;resolvedTickets:number;closedTickets:number;cancelledTickets:number;unassignedTickets:number;assignedTickets:number;criticalTickets:number;createdThisMonth:number;closedThisMonth:number }
+export interface DashboardBreakdownItemResponse { id:number;name:string;count:number;displayOrder:number }
+export interface DashboardTrendPointResponse { periodStartUtc:string;createdCount:number;closedCount:number;cancelledCount:number }
+export interface DashboardRecentTicketResponse { id:string;referenceNumber:string;title:string;statusName:string;priorityName:string;categoryName:string;createdAtUtc:string;updatedAtUtc:string;cancelledAtUtc:string|null;assignedToDisplayName:string|null }
+export interface DashboardResponse { summary:DashboardSummaryResponse;statusBreakdown:DashboardBreakdownItemResponse[];priorityBreakdown:DashboardBreakdownItemResponse[];categoryBreakdown:DashboardBreakdownItemResponse[];monthlyTrend:DashboardTrendPointResponse[];recentTickets:DashboardRecentTicketResponse[] }
