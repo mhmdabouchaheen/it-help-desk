@@ -1,6 +1,7 @@
 using HelpDesk.Api.Application.Authorization;
 using HelpDesk.Api.Application.Common.Exceptions;
 using HelpDesk.Api.Application.Tickets;
+using HelpDesk.Api.Application.Notifications;
 using HelpDesk.Api.Contracts.Tickets;
 using HelpDesk.Api.Data;
 using HelpDesk.Api.Entities;
@@ -8,6 +9,7 @@ using HelpDesk.Api.Infrastructure.Tickets;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace HelpDesk.Api.Tests;
 
@@ -360,6 +362,7 @@ public sealed class TicketServiceTests
         await fixture.Service.AssignAsync(ticket.Id, new() { AssignedToUserId = fixture.OwnerId }, access);
         var result = await fixture.Service.AssignAsync(ticket.Id, new() { AssignedToUserId = fixture.OwnerId }, access);
         Assert.Single(result.AssignmentHistory);
+        fixture.Notifications.Verify(x=>x.NotifyAssignmentAsync(ticket.Id,ticket.ReferenceNumber,fixture.OwnerId,fixture.OwnerId,It.IsAny<CancellationToken>()),Times.Once);
     }
 
     [Fact]
@@ -425,6 +428,7 @@ public sealed class TicketServiceTests
         var result = await fixture.Service.ChangeStatusAsync(ticket.Id, new() { StatusId = 1 }, fixture.Access(null, AppRoles.Admin));
         Assert.Empty(result.StatusHistory);
         Assert.Equal(ticket.UpdatedAtUtc, result.UpdatedAtUtc);
+        fixture.Notifications.VerifyNoOtherCalls();
     }
 
     [Fact]
@@ -461,6 +465,7 @@ public sealed class TicketServiceTests
         Assert.Equal(TicketCommentVisibilities.Public, result.Visibility);
         Assert.Equal(fixture.OwnerId, result.AuthorUserId);
         Assert.Equal("Owner User", result.AuthorDisplayName);
+        fixture.Notifications.Verify(x=>x.NotifyCommentAddedAsync(ticket.Id,ticket.ReferenceNumber,ticket.CreatedByUserId,ticket.AssignedToUserId,fixture.OwnerId,false,It.IsAny<CancellationToken>()),Times.Once);
         Assert.Equal(fixture.Now.UtcDateTime, result.CreatedAtUtc);
     }
 
@@ -529,7 +534,16 @@ public sealed class TicketServiceTests
 
     [Theory] [InlineData(AppRoles.Admin)] [InlineData(AppRoles.ItSupportAgent)]
     public async Task Cancel_SupportMayCancelTerminalTicket_AndRepeatedCallIsIdempotent(string role)
-    { await using var fixture=await Fixture.CreateAsync();var(ticket,_)=await fixture.AddTicketsAsync(terminal:true);var access=fixture.Access(fixture.OwnerId,role);var first=await fixture.Service.CancelAsync(ticket.Id,new(),access);var second=await fixture.Service.CancelAsync(ticket.Id,new(),access);Assert.Equal(first.CancelledAtUtc,second.CancelledAtUtc);Assert.Equal((short)5,second.StatusId); }
+    { await using var fixture=await Fixture.CreateAsync();var(ticket,_)=await fixture.AddTicketsAsync(terminal:true);var access=fixture.Access(fixture.OwnerId,role);var first=await fixture.Service.CancelAsync(ticket.Id,new(),access);var second=await fixture.Service.CancelAsync(ticket.Id,new(),access);Assert.Equal(first.CancelledAtUtc,second.CancelledAtUtc);Assert.Equal((short)5,second.StatusId);fixture.Notifications.Verify(x=>x.NotifyTicketCancelledAsync(ticket.Id,ticket.ReferenceNumber,ticket.CreatedByUserId,fixture.OtherId,fixture.OwnerId,It.IsAny<CancellationToken>()),Times.Once); }
+
+    [Fact]
+    public async Task NotificationFailure_DoesNotRollBackPersistedTicketEvents()
+    {
+        await using var fixture=await Fixture.CreateAsync();var(ticket,_)=await fixture.AddTicketsAsync();
+        fixture.Notifications.Setup(x=>x.NotifyStatusChangedAsync(It.IsAny<Guid>(),It.IsAny<string>(),It.IsAny<Guid>(),It.IsAny<Guid>(),It.IsAny<string>(),It.IsAny<CancellationToken>())).ThrowsAsync(new InvalidOperationException("notification unavailable"));
+        var result=await fixture.Service.ChangeStatusAsync(ticket.Id,new(){StatusId=2},fixture.Access(null,AppRoles.Admin));
+        Assert.Equal(2,result.StatusId);Assert.Single(result.StatusHistory);
+    }
 
     [Fact]
     public async Task CancelledTicket_BlocksMutations_ButSupportMayComment()
@@ -548,11 +562,14 @@ public sealed class TicketServiceTests
             _connection = connection;
             Db = db;
             Now = time.GetUtcNow();
-            Service = new TicketService(db, new TicketNumberGenerator(time), time, NullLogger<TicketService>.Instance);
+            Notifications = new Mock<ITicketNotificationService>();
+            Service = new TicketService(db, new TicketNumberGenerator(time), time, NullLogger<TicketService>.Instance,
+                Notifications.Object);
         }
 
         public ApplicationDbContext Db { get; }
         public TicketService Service { get; }
+        public Mock<ITicketNotificationService> Notifications { get; }
         public DateTimeOffset Now { get; }
         public Guid OwnerId { get; } = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
         public Guid OtherId { get; } = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");

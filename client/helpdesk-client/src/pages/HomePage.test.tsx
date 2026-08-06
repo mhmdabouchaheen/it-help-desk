@@ -1,0 +1,24 @@
+import { render,screen,within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
+import { beforeEach,describe,expect,it,vi } from 'vitest'
+import { ApiProblemError } from '../api/apiClient'
+import type { DashboardResponse } from '../types/dashboard'
+import { HomePage } from './HomePage'
+
+const reload=vi.fn();let roles:string[]=[];let hookState:Record<string,unknown>
+vi.mock('../auth/AuthProvider',()=>({useAuth:()=>({roles,hasAnyRole:(wanted:readonly string[])=>wanted.some(x=>roles.includes(x))})}))
+vi.mock('../auth/useDashboard',()=>({useDashboard:()=>hookState}))
+vi.mock('recharts',()=>{const Component=({children}:{children?:React.ReactNode})=><div>{children}</div>;return {Bar:Component,BarChart:Component,CartesianGrid:Component,Cell:Component,Legend:Component,Line:Component,LineChart:Component,Pie:Component,PieChart:Component,ResponsiveContainer:Component,Tooltip:Component,XAxis:Component,YAxis:Component}})
+const dashboard:DashboardResponse={summary:{totalTickets:7,openTickets:3,inProgressTickets:1,pendingTickets:1,resolvedTickets:0,closedTickets:2,cancelledTickets:1,unassignedTickets:4,assignedTickets:3,criticalTickets:2,createdThisMonth:5,closedThisMonth:1},statusBreakdown:[{id:1,name:'Open',count:3,displayOrder:1},{id:5,name:'Closed',count:2,displayOrder:5}],priorityBreakdown:[{id:1,name:'Low',count:5,displayOrder:1},{id:3,name:'Critical',count:2,displayOrder:3}],categoryBreakdown:[{id:1,name:'Hardware',count:7,displayOrder:1}],monthlyTrend:[{periodStartUtc:'2026-03-01T00:00:00Z',createdCount:2,closedCount:1,cancelledCount:0},{periodStartUtc:'2026-04-01T00:00:00Z',createdCount:1,closedCount:0,cancelledCount:1}],recentTickets:[{id:'ticket-1',referenceNumber:'TKT-1',title:'Printer',statusName:'Open',priorityName:'Critical',categoryName:'Hardware',createdAtUtc:'2026-08-01T00:00:00Z',updatedAtUtc:'2026-08-05T12:00:00Z',cancelledAtUtc:'2026-08-05T11:00:00Z',assignedToDisplayName:null}]}
+const renderPage=()=>render(<MemoryRouter><HomePage/></MemoryRouter>)
+describe('HomePage dashboard',()=>{
+  beforeEach(()=>{roles=['Employee'];reload.mockReset();hookState={dashboard,isLoading:false,error:undefined,reload}})
+  it('announces loading',()=>{hookState={dashboard:undefined,isLoading:true,error:undefined,reload};renderPage();expect(screen.getByRole('status')).toHaveTextContent('Loading dashboard analytics')})
+  it('renders a safe error and retries',async()=>{hookState={dashboard:undefined,isLoading:false,error:new ApiProblemError(403,'Forbidden',undefined,undefined,'trace-1'),reload};renderPage();const alert=screen.getByRole('alert');expect(alert).toHaveTextContent('do not have permission');expect(alert).toHaveTextContent('trace-1');await userEvent.click(within(alert).getByRole('button',{name:'Retry'}));expect(reload).toHaveBeenCalledOnce()})
+  it('renders KPI, breakdown, trend, recent ticket, cancellation, and navigation content',()=>{renderPage();const summary=screen.getByRole('region',{name:'Ticket summary'});expect(within(summary).getByText('7')).toBeInTheDocument();expect(screen.getByText(/remain included in their actual workflow status/)).toBeInTheDocument();expect(screen.getByLabelText('Status text summary')).toHaveTextContent('Open3');expect(screen.getByLabelText('Priority text summary')).toHaveTextContent('Critical2');expect(screen.getByRole('table',{name:'Monthly trend text alternative'})).toHaveTextContent('Cancelled');expect(screen.getByRole('link',{name:/TKT-1/})).toHaveAttribute('href','/app/tickets/ticket-1');expect(screen.getByText('Unassigned',{selector:'td'})).toBeInTheDocument();expect(screen.getByText('Cancelled',{selector:'.cancelled-badge'})).toBeInTheDocument()})
+  it.each([['Admin'],['IT Support Agent']])('uses organization copy for %s and additive support roles',(role)=>{roles=role==='Admin'?['Employee',role]:[role];renderPage();expect(screen.getByText('Showing organization-wide ticket activity.')).toBeInTheDocument()})
+  it.each(['Employee','Manager'])('uses owned-ticket copy for %s',(role)=>{roles=[role];renderPage();expect(screen.getByText('Showing tickets you created.')).toBeInTheDocument()})
+  it('provides headings, text alternatives, labelled regions, links, and a cancellation explanation',()=>{renderPage();expect(screen.getByRole('heading',{level:1,name:'Dashboard'})).toBeInTheDocument();expect(screen.getByRole('region',{name:'Ticket summary'})).toBeInTheDocument();expect(screen.getAllByRole('list',{name:/text summary/})).toHaveLength(3);expect(screen.getByRole('link',{name:'Create ticket'})).toHaveAttribute('href','/app/tickets/new');expect(screen.getByRole('link',{name:'View all tickets'})).toHaveAttribute('href','/app/tickets')})
+  it('renders the empty recent-ticket state',()=>{hookState={dashboard:{...dashboard,recentTickets:[]},isLoading:false,error:undefined,reload};renderPage();expect(screen.getByText('No visible tickets yet.')).toBeInTheDocument()})
+})

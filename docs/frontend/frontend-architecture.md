@@ -1,5 +1,11 @@
 # Frontend architecture
 
+## Notifications
+
+`/app/notifications` is protected by the authenticated application layout. The layout loads the server unread count and displays an accessible badge, while the center provides all/unread filtering, pagination, retry, individual and bulk read operations, and ticket links. State is shared in memory for the authenticated layout and is discarded on logout/unmount; it is never written to local or session storage.
+
+Notification messages render as plain React text with no HTML injection. Requests use the shared bearer client and never send a user or recipient identifier. Read operations reload authoritative server state after success. There is no background polling or SignalR in this phase.
+
 ## Dashboard
 
 `/app/home` remains the authenticated landing route and its navigation label is Dashboard. It loads `GET /api/dashboard` with the shared bearer client, sends no identity or role filters, aborts on unmount, ignores stale responses, and does not persist analytics. Loading is announced; 403 and generic errors are safe and retryable.

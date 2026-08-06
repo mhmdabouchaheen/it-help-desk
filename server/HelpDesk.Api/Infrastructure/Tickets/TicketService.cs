@@ -1,6 +1,7 @@
 using HelpDesk.Api.Application.Authorization;
 using HelpDesk.Api.Application.Common.Exceptions;
 using HelpDesk.Api.Application.Tickets;
+using HelpDesk.Api.Application.Notifications;
 using HelpDesk.Api.Contracts.Common;
 using HelpDesk.Api.Contracts.Tickets;
 using HelpDesk.Api.Data;
@@ -15,7 +16,8 @@ public sealed class TicketService(
     ApplicationDbContext dbContext,
     ITicketNumberGenerator ticketNumberGenerator,
     TimeProvider timeProvider,
-    ILogger<TicketService> logger) : ITicketService
+    ILogger<TicketService> logger,
+    ITicketNotificationService ticketNotifications) : ITicketService
 {
     private const string InitialStatusName = "Open";
     private const string ReferenceNumberIndex = "IX_Tickets_ReferenceNumber";
@@ -283,6 +285,8 @@ public sealed class TicketService(
         logger.LogInformation(
             "Assigned ticket {TicketId} to user {TargetUserId} by user {ActingUserId}; history {HistoryId}.",
             ticketId, request.AssignedToUserId, accessContext.UserId, assignment.Id);
+        await TryNotifyAsync(() => ticketNotifications.NotifyAssignmentAsync(ticket.Id,ticket.ReferenceNumber,
+            request.AssignedToUserId,accessContext.UserId,cancellationToken),ticket.Id);
         return await GetByIdAsync(ticketId, accessContext, cancellationToken);
     }
 
@@ -333,6 +337,8 @@ public sealed class TicketService(
         logger.LogInformation(
             "Changed ticket {TicketId} status to {StatusId} by user {ActingUserId}; history {HistoryId}.",
             ticketId, targetStatus.Id, accessContext.UserId, history.Id);
+        await TryNotifyAsync(() => ticketNotifications.NotifyStatusChangedAsync(ticket.Id,ticket.ReferenceNumber,
+            ticket.CreatedByUserId,accessContext.UserId,targetStatus.Name,cancellationToken),ticket.Id);
         return await GetByIdAsync(ticketId, accessContext, cancellationToken);
     }
 
@@ -386,6 +392,8 @@ public sealed class TicketService(
         logger.LogInformation(
             "Added comment {CommentId} to ticket {TicketId} by user {ActingUserId}.",
             comment.Id, ticketId, accessContext.UserId);
+        await TryNotifyAsync(() => ticketNotifications.NotifyCommentAddedAsync(ticket.Id,ticket.ReferenceNumber,
+            ticket.CreatedByUserId,ticket.AssignedToUserId,accessContext.UserId,request.IsInternal,cancellationToken),ticket.Id);
         return new TicketCommentResponse
         {
             Id = comment.Id,
@@ -412,10 +420,19 @@ public sealed class TicketService(
         if (!support && await IsTerminalAsync(ticket.StatusId, cancellationToken)) throw new TicketStateConflictException();
         var now = timeProvider.GetUtcNow().UtcDateTime;
         ticket.CancelledAtUtc = now; ticket.UpdatedAtUtc = now;
+        var previousAssigneeId = ticket.AssignedToUserId;
         var assignment = await dbContext.TicketAssignments.SingleOrDefaultAsync(x => x.TicketId == ticketId && x.EndedAtUtc == null, cancellationToken);
         if (assignment is not null) { assignment.EndedAtUtc = now; assignment.EndedByUserId = accessContext.UserId; ticket.AssignedToUserId = null; }
         await dbContext.SaveChangesAsync(cancellationToken);
+        await TryNotifyAsync(() => ticketNotifications.NotifyTicketCancelledAsync(ticket.Id,ticket.ReferenceNumber,
+            ticket.CreatedByUserId,previousAssigneeId,accessContext.UserId,cancellationToken),ticket.Id);
         return await GetByIdAsync(ticketId, accessContext, cancellationToken);
+    }
+
+    private async Task TryNotifyAsync(Func<Task> action,Guid ticketId)
+    {
+        try{await action();}
+        catch(Exception exception){logger.LogWarning(exception,"Notification creation failed after ticket {TicketId} was persisted.",ticketId);}
     }
 
     private void RequireSupport(TicketAccessContext accessContext)

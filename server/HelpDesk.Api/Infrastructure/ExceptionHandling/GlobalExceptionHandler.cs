@@ -85,6 +85,8 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
         AttachmentValidationException => new(400, "Attachment validation failed", exception.Message, "attachment_validation_failed"),
         AttachmentTooLargeException => new(413, "Attachment too large", exception.Message, "attachment_too_large"),
         AttachmentUnavailableException => new(503, "Attachment unavailable", exception.Message, "attachment_unavailable"),
+        NotificationNotFoundException => new(404, "Notification not found", exception.Message, "notification_not_found"),
+        NotificationValidationException => new(400, "Notification validation failed", exception.Message, "notification_validation_failed"),
         ArgumentException => new(400, "Invalid request", "One or more request values are invalid.", "invalid_argument"),
         _ => new(500, "Internal server error", "An unexpected error occurred.", "internal_server_error", true)
     };

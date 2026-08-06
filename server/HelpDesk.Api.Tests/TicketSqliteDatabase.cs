@@ -74,6 +74,11 @@ internal static class TicketSqliteDatabase
                 "ToStatusId" INTEGER NOT NULL, "ChangedByUserId" TEXT,
                 "ChangedAtUtc" TEXT NOT NULL, "Reason" TEXT
             );
+            CREATE TABLE "Notifications" (
+                "Id" TEXT PRIMARY KEY, "RecipientUserId" TEXT NOT NULL, "TicketId" TEXT,
+                "Type" TEXT NOT NULL, "Title" TEXT NOT NULL, "Message" TEXT NOT NULL,
+                "CreatedAtUtc" TEXT NOT NULL, "ReadAtUtc" TEXT, "ExpiresAtUtc" TEXT
+            );
             """;
         await using var command = connection.CreateCommand();
         command.CommandText = sql;

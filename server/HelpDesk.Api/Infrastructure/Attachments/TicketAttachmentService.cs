@@ -2,6 +2,7 @@ using HelpDesk.Api.Application.Attachments;
 using HelpDesk.Api.Application.Authorization;
 using HelpDesk.Api.Application.Common.Exceptions;
 using HelpDesk.Api.Application.Tickets;
+using HelpDesk.Api.Application.Notifications;
 using HelpDesk.Api.Configuration;
 using HelpDesk.Api.Contracts.Tickets;
 using HelpDesk.Api.Data;
@@ -13,7 +14,8 @@ namespace HelpDesk.Api.Infrastructure.Attachments;
 
 /// <summary>Applies ticket access, content policy, and metadata persistence for attachments.</summary>
 public sealed class TicketAttachmentService(ApplicationDbContext dbContext, IAttachmentStorage storage,
-    IOptions<AttachmentOptions> configuredOptions, TimeProvider timeProvider, ILogger<TicketAttachmentService> logger)
+    IOptions<AttachmentOptions> configuredOptions, TimeProvider timeProvider, ILogger<TicketAttachmentService> logger,
+    ITicketNotificationService ticketNotifications)
     : ITicketAttachmentService
 {
     private readonly AttachmentOptions options = configuredOptions.Value;
@@ -57,6 +59,9 @@ public sealed class TicketAttachmentService(ApplicationDbContext dbContext, IAtt
         dbContext.TicketAttachments.Add(entity); ticket.UpdatedAtUtc = now;
         try { await dbContext.SaveChangesAsync(cancellationToken); }
         catch { try { await storage.DeleteAsync(stored.StorageKey, CancellationToken.None); } catch (Exception cleanup) { logger.LogError(cleanup, "Failed to clean up attachment {AttachmentId} after metadata failure.", entity.Id); } throw; }
+        try { await ticketNotifications.NotifyAttachmentAddedAsync(ticket.Id,ticket.ReferenceNumber,ticket.CreatedByUserId,
+            ticket.AssignedToUserId,accessContext.UserId,cancellationToken); }
+        catch(Exception exception) { logger.LogWarning(exception,"Notification creation failed after attachment {AttachmentId} was persisted.",entity.Id); }
         var displayName = await dbContext.Users.AsNoTracking().Where(x => x.Id == accessContext.UserId).Select(x => x.DisplayName).SingleAsync(cancellationToken);
         return Response(entity, displayName);
     }

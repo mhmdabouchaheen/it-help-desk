@@ -6,11 +6,13 @@ using HelpDesk.Api.Application.Auth;
 using HelpDesk.Api.Application.Attachments;
 using HelpDesk.Api.Application.Dashboard;
 using HelpDesk.Api.Application.Tickets;
+using HelpDesk.Api.Application.Notifications;
 using HelpDesk.Api.Application.Users;
 using HelpDesk.Api.Contracts.Auth;
 using HelpDesk.Api.Contracts.Common;
 using HelpDesk.Api.Contracts.Dashboard;
 using HelpDesk.Api.Contracts.Tickets;
+using HelpDesk.Api.Contracts.Notifications;
 using HelpDesk.Api.Contracts.Users;
 using HelpDesk.Api.Data;
 using Microsoft.AspNetCore.Hosting;
@@ -36,6 +38,9 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
         AuthenticationService = new Mock<IAuthenticationService>();
         TicketAttachmentService = new Mock<ITicketAttachmentService>();
         DashboardService = new Mock<IDashboardService>();
+        NotificationService = new Mock<INotificationService>();
+        NotificationService.Setup(x=>x.GetPagedAsync(It.IsAny<Guid>(),It.IsAny<NotificationListRequest>(),It.IsAny<CancellationToken>())).ReturnsAsync(new PagedResponse<NotificationResponse>{PageNumber=1,PageSize=20});
+        NotificationService.Setup(x=>x.GetUnreadCountAsync(It.IsAny<Guid>(),It.IsAny<CancellationToken>())).ReturnsAsync(new NotificationUnreadCountResponse());
         DashboardService.Setup(x => x.GetDashboardAsync(It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new DashboardResponse());
         AuthenticationService.Setup(service => service.RegisterAsync(
@@ -88,6 +93,7 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
     public Mock<ITicketLookupService> TicketLookupService { get; }
     public Mock<ITicketAttachmentService> TicketAttachmentService { get; }
     public Mock<IDashboardService> DashboardService { get; }
+    public Mock<INotificationService> NotificationService { get; }
     public Mock<ISupportUserDirectoryService> SupportUserDirectoryService { get; }
     public static Guid TicketId { get; } = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
     public static Guid CommentId { get; } = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
@@ -145,10 +151,12 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
             services.AddSingleton(TicketAttachmentService.Object);
             services.RemoveAll<ITicketService>();
             services.RemoveAll<IDashboardService>();
+            services.RemoveAll<INotificationService>();
             services.RemoveAll<ITicketLookupService>();
             services.RemoveAll<ISupportUserDirectoryService>();
             services.AddSingleton(TicketService.Object);
             services.AddSingleton(DashboardService.Object);
+            services.AddSingleton(NotificationService.Object);
             services.AddSingleton(TicketLookupService.Object);
             services.AddSingleton(SupportUserDirectoryService.Object);
         });
