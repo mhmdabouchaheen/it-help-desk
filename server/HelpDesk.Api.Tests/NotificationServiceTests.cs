@@ -3,6 +3,7 @@ using HelpDesk.Api.Contracts.Notifications;
 using HelpDesk.Api.Data;
 using HelpDesk.Api.Entities;
 using HelpDesk.Api.Infrastructure.Notifications;
+using HelpDesk.Api.Application.Notifications;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -49,5 +50,5 @@ public sealed class NotificationServiceTests
 
     private sealed class FixedTime(DateTimeOffset now):TimeProvider{public override DateTimeOffset GetUtcNow()=>now;}
     private sealed class Fixture(SqliteConnection connection,ApplicationDbContext db):IAsyncDisposable
-    {public Guid User1{get;}=Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");public Guid User2{get;}=Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");public DateTime Now{get;}=new(2026,8,6,12,0,0,DateTimeKind.Utc);public ApplicationDbContext Db=>db;public NotificationService Service(ILogger<NotificationService>? logger=null)=>new(db,new FixedTime(new DateTimeOffset(Now)),logger??Mock.Of<ILogger<NotificationService>>());public void Add(Guid id,Guid recipient,DateTime created,DateTime? read,Guid? ticket,DateTime? expires=null)=>db.Notifications.Add(new(){Id=id,RecipientUserId=recipient,TicketId=ticket,Type="Type",Title="Title",Message="Message",CreatedAtUtc=created,ReadAtUtc=read,ExpiresAtUtc=expires});public static async Task<Fixture>Create(){var c=new SqliteConnection("Data Source=:memory:");await c.OpenAsync();await TicketSqliteDatabase.InitializeAsync(c);var db=new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlite(c).Options);return new(c,db);}public async ValueTask DisposeAsync(){await db.DisposeAsync();await connection.DisposeAsync();}}
+    {public Guid User1{get;}=Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");public Guid User2{get;}=Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");public DateTime Now{get;}=new(2026,8,6,12,0,0,DateTimeKind.Utc);public ApplicationDbContext Db=>db;public NotificationService Service(ILogger<NotificationService>? logger=null)=>new(db,new FixedTime(new DateTimeOffset(Now)),Mock.Of<INotificationRealtimePublisher>(),logger??Mock.Of<ILogger<NotificationService>>());public void Add(Guid id,Guid recipient,DateTime created,DateTime? read,Guid? ticket,DateTime? expires=null)=>db.Notifications.Add(new(){Id=id,RecipientUserId=recipient,TicketId=ticket,Type="Type",Title="Title",Message="Message",CreatedAtUtc=created,ReadAtUtc=read,ExpiresAtUtc=expires});public static async Task<Fixture>Create(){var c=new SqliteConnection("Data Source=:memory:");await c.OpenAsync();await TicketSqliteDatabase.InitializeAsync(c);var db=new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlite(c).Options);return new(c,db);}public async ValueTask DisposeAsync(){await db.DisposeAsync();await connection.DisposeAsync();}}
 }

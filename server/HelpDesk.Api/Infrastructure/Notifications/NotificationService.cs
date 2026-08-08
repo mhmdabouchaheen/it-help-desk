@@ -10,7 +10,7 @@ namespace HelpDesk.Api.Infrastructure.Notifications;
 
 /// <summary>EF-backed, recipient-scoped persistent notification operations.</summary>
 public sealed class NotificationService(ApplicationDbContext db, TimeProvider timeProvider,
-    ILogger<NotificationService> logger) : INotificationService
+    INotificationRealtimePublisher realtimePublisher, ILogger<NotificationService> logger) : INotificationService
 {
     public async Task CreateAsync(Guid recipientUserId, Guid? ticketId, string type, string title, string message,
         DateTime? expiresAtUtc = null, CancellationToken cancellationToken = default)
@@ -18,11 +18,26 @@ public sealed class NotificationService(ApplicationDbContext db, TimeProvider ti
         if (recipientUserId == Guid.Empty || string.IsNullOrWhiteSpace(type) ||
             string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(message))
             throw new NotificationValidationException();
-        db.Notifications.Add(new Notification { Id = Guid.NewGuid(), RecipientUserId = recipientUserId,
+        var notification = new Notification { Id = Guid.NewGuid(), RecipientUserId = recipientUserId,
             TicketId = ticketId, Type = type.Trim(), Title = title.Trim(), Message = message.Trim(),
-            CreatedAtUtc = timeProvider.GetUtcNow().UtcDateTime, ExpiresAtUtc = expiresAtUtc });
+            CreatedAtUtc = timeProvider.GetUtcNow().UtcDateTime, ExpiresAtUtc = expiresAtUtc };
+        db.Notifications.Add(notification);
         await db.SaveChangesAsync(cancellationToken);
         logger.LogInformation("Created notification type {NotificationType} for recipient {RecipientUserId}.", type.Trim(), recipientUserId);
+        try
+        {
+            await realtimePublisher.PublishCreatedAsync(recipientUserId, new NotificationRealtimeEvent
+            {
+                NotificationId = notification.Id, TicketId = notification.TicketId,
+                Type = notification.Type, CreatedAtUtc = notification.CreatedAtUtc
+            }, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning(exception,
+                "Real-time notification delivery failed for notification {NotificationId} and recipient {RecipientUserId}.",
+                notification.Id, recipientUserId);
+        }
     }
 
     public async Task<PagedResponse<NotificationResponse>> GetPagedAsync(Guid currentUserId,

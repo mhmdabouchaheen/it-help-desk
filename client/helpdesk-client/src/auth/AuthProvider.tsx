@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
   const login = useCallback(async (request: LoginRequest) => acceptAuth(await authApi.loginAsync(request)), [acceptAuth])
   const register = useCallback(async (request: RegisterRequest) => acceptAuth(await authApi.registerAsync(request)), [acceptAuth])
-  const logout = useCallback(async () => { try { await authApi.logoutAsync() } finally { setUser(null) } }, [])
+  const logout = useCallback(async () => { try { await authApi.logoutAsync() } finally { tokenStore.clear(); setUser(null) } }, [])
   const reloadCurrentUser = useCallback(async () => {
     try { setUser(await authApi.getCurrentUserAsync()) }
     catch (error) { if (error instanceof ApiProblemError && error.status === 401) { tokenStore.clear(); setUser(null) } throw error }

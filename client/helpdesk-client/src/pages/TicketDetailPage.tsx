@@ -8,6 +8,7 @@ import { useLookups } from "../auth/useLookups";
 import { useTicketDetail } from "../auth/useTicketDetail";
 import { invalidateSupportUsers, useSupportUsers } from "../auth/useSupportUsers";
 import { ErrorSummary, LoadingIndicator } from "../components/Feedback";
+import {CancelledBadge,TicketPriorityBadge,TicketStatusBadge} from "../components/Badges";
 import { formatDate, isGuid } from "../utils/tickets";
 export function TicketDetailPage() {
   const { id } = useParams();
@@ -143,11 +144,11 @@ function Detail({ id }: { id: string }) {
       <dl className="summary">
         <div>
           <dt>Status</dt>
-          <dd>{ticket.statusName}</dd>
+          <dd><TicketStatusBadge name={ticket.statusName}/></dd>
         </div>
         <div>
           <dt>Priority</dt>
-          <dd>{ticket.priorityName}</dd>
+          <dd><TicketPriorityBadge name={ticket.priorityName}/></dd>
         </div>
         <div>
           <dt>Category</dt>
@@ -170,7 +171,7 @@ function Detail({ id }: { id: string }) {
         <h2>Description</h2>
         <p className="preserve-lines">{ticket.description}</p>
       </section>
-      {cancelled&&<section role="status"><h2>Cancelled</h2><p>This cancellation is final. Cancelled on {formatDate(ticket.cancelledAtUtc!)}. The workflow status remains {ticket.statusName}.</p></section>}
+      {cancelled&&<section role="status"><h2><CancelledBadge/></h2><p>This cancellation is final. Cancelled on {formatDate(ticket.cancelledAtUtc!)}. The workflow status remains {ticket.statusName}.</p></section>}
       {canCancel&&<section><h2>Cancel ticket</h2>{!showCancel?<button type="button" onClick={()=>setShowCancel(true)}>Cancel ticket</button>:<form onSubmit={cancelTicket}><p>This permanently makes the ticket read-only. Its history and attachments will be preserved.</p><label>Optional cancellation reason<textarea maxLength={500} value={cancelReason} onChange={e=>setCancelReason(e.target.value)}/></label><button disabled={cancelling}>{cancelling?'Cancelling…':'Confirm cancellation'}</button><button type="button" disabled={cancelling} onClick={()=>setShowCancel(false)}>Keep ticket</button></form>}</section>}
       <div id="action-error" aria-live="polite"><ErrorSummary message={actionError} /></div>
       {!cancelled && support && assignmentAllowed && (

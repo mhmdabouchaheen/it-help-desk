@@ -1,10 +1,26 @@
 # Frontend architecture
 
+## Final UI system
+
+The portfolio UI uses centralized semantic tokens in `src/index.css` and reusable application, component, and dashboard treatments in `App.css` and `dashboard.css`. It uses a system font stack, soft surfaces, subtle borders/shadows, consistent radii, shared form/button states, readable semantic badges, announced loading, safe error alerts, and real empty-state copy.
+
+The authenticated shell has a fixed desktop sidebar, sticky utility header, notification count, quick-create action, and bottom account area. Below 850px it becomes a labelled drawer that closes by overlay, navigation, close button, or Escape. Responsive filters, cards, charts, actions, summaries, and table-to-card layouts prevent horizontal page overflow down to 320px.
+
+`lucide-react` supplies consistent decorative/navigation icons; icons do not replace accessible labels. Known status and priority names map to semantic badge tones with neutral fallbacks and never depend on lookup IDs. All untrusted message, comment, and ticket content remains normal React text.
+
+Authenticated feature routes are loaded with `React.lazy` and an accessible `Suspense` fallback. This isolates the Recharts-heavy dashboard from the initial application chunk while preserving route guards and URLs. Recharts retains nearby list/table alternatives, restrained colors, responsive containers, and textual headings.
+
+The detailed design rules and responsive/accessibility decisions are recorded in `docs/frontend/ui-style-guide.md`.
+
 ## Notifications
 
 `/app/notifications` is protected by the authenticated application layout. The layout loads the server unread count and displays an accessible badge, while the center provides all/unread filtering, pagination, retry, individual and bulk read operations, and ticket links. State is shared in memory for the authenticated layout and is discarded on logout/unmount; it is never written to local or session storage.
 
-Notification messages render as plain React text with no HTML injection. Requests use the shared bearer client and never send a user or recipient identifier. Read operations reload authoritative server state after success. There is no background polling or SignalR in this phase.
+Notification messages render as plain React text with no HTML injection. Requests use the shared bearer client and never send a user or recipient identifier. Read operations reload authoritative server state after success.
+
+The authenticated layout owns one `@microsoft/signalr` connection to `/hubs/notifications`. It uses automatic reconnect, reads the latest access token from the existing memory-only token store whenever requested, and stops/removes its handler on logout or unmount. It never supplies a refresh token or creates a second refresh flow.
+
+`NotificationCreated` is validated and used only to reload the REST page and unread count. It never fabricates or directly renders a notification, and superseded reloads are aborted. Connection failure leaves manual reload and all REST behavior available. There is no browser push, Notification API, service worker, or persistent event storage. The hub URL derives from `VITE_API_BASE_URL`; production uses HTTPS and a reverse proxy configured for WebSocket upgrades and safe handshake logging.
 
 ## Dashboard
 

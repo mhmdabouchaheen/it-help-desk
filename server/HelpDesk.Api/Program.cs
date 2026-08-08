@@ -19,6 +19,7 @@ using HelpDesk.Api.Infrastructure.ExceptionHandling;
 using HelpDesk.Api.Infrastructure.Tickets;
 using HelpDesk.Api.Infrastructure.Users;
 using HelpDesk.Api.Infrastructure.Notifications;
+using HelpDesk.Api.Hubs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
@@ -55,6 +56,7 @@ builder.Services.AddOpenApi(options =>
     });
 });
 builder.Services.AddProblemDetails();
+builder.Services.AddSignalR();
 builder.Services.AddOptions<AttachmentOptions>()
     .Bind(builder.Configuration.GetSection(AttachmentOptions.SectionName))
     .Validate(x => !string.IsNullOrWhiteSpace(x.StorageRoot), "Attachment storage root must not be blank.")
@@ -144,6 +146,13 @@ builder.Services
         };
         options.Events = new JwtBearerEvents
         {
+            OnMessageReceived = context =>
+            {
+                if (context.HttpContext.Request.Path.Equals("/hubs/notifications", StringComparison.Ordinal) &&
+                    context.Request.Query.TryGetValue("access_token", out var token) && token.Count == 1)
+                    context.Token = token[0];
+                return Task.CompletedTask;
+            },
             OnChallenge = context =>
             {
                 context.HandleResponse();
@@ -184,6 +193,7 @@ builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<ITicketLookupService, TicketLookupService>();
 builder.Services.AddScoped<ISupportUserDirectoryService, SupportUserDirectoryService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddSingleton<INotificationRealtimePublisher, SignalRNotificationRealtimePublisher>();
 builder.Services.AddScoped<ITicketNotificationService, TicketNotificationService>();
 builder.Services.AddSingleton<ITicketAccessContextFactory, TicketAccessContextFactory>();
 builder.Services.AddSingleton<ITicketNumberGenerator, TicketNumberGenerator>();
@@ -203,6 +213,7 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 var summaries = new[]
 {

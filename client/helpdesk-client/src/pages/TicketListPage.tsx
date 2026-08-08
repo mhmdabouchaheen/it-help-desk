@@ -9,6 +9,7 @@ import {
   ticketSortFields,
 } from "../utils/tickets";
 import type { PagedResponse, TicketSummaryResponse } from "../types/tickets";
+import {CancelledBadge,TicketPriorityBadge,TicketStatusBadge} from "../components/Badges";
 export function TicketListPage() {
   const [params, setParams] = useSearchParams();
   const request = useMemo(() => parseTicketQuery(params), [params]);
@@ -185,8 +186,8 @@ export function TicketListPage() {
                       {t.ticketNumber}: {t.title}
                     </Link>
                   </td>
-                  <td>{t.statusName} {t.cancelledAtUtc&&<mark>Cancelled</mark>}</td>
-                  <td>{t.priorityName}</td>
+                  <td><TicketStatusBadge name={t.statusName}/> {t.cancelledAtUtc&&<CancelledBadge/>}</td>
+                  <td><TicketPriorityBadge name={t.priorityName}/></td>
                   <td>{t.categoryName}</td>
                   <td>{t.createdByDisplayName}</td>
                   <td>{t.assignedToDisplayName ?? "Unassigned"}</td>
