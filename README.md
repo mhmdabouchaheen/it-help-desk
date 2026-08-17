@@ -4,6 +4,8 @@
 
 A full-stack help-desk application for creating, assigning, tracking, and auditing IT support tickets. The project demonstrates secure authentication, role-based authorization, operational workflows, persistent notifications, real-time invalidation, analytics, attachments, and an append-only activity trail.
 
+For a complete non-technical walkthrough of every role, page, workflow, feature, security rule, and important limitation, open the standalone [HTML user guide](docs/user-guide.html) in a browser.
+
 ## Features
 
 - Registration, login, refresh-token rotation, logout, and JWT authorization
@@ -172,6 +174,8 @@ Local storage is appropriate for development and a single-instance deployment on
 The existing `ActivityLogs` table records allowlisted, non-sensitive metadata. Global access is restricted to support roles and ticket history reuses ticket visibility rules. Writes are best effort rather than compliance-grade transactional auditing; a regulated design would require a transactional outbox or equivalent architecture.
 
 ## Deployment Notes
+
+For the zero-cost internship/demo deployment using Render Static Sites, a Render Free Web Service, and Neon PostgreSQL, follow the complete [Render + Neon deployment guide](docs/deployment/free-render-neon.md). The repository includes a root `render.yaml`, a hardened multi-stage API Dockerfile, and SPA rewrite configuration.
 
 - Terminate TLS at a trusted reverse proxy or platform and redirect HTTP to HTTPS.
 - Trust forwarded headers only from explicitly configured proxy networks/addresses; broad forwarded-header trust is intentionally not enabled in application code.

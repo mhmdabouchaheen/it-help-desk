@@ -13,7 +13,7 @@ public sealed class ConfiguredAiTicketProviderTests
         var openAiHandler = new OllamaTicketProviderTests.Handler(_ =>
             throw new InvalidOperationException("OpenAI must not run"));
         var ollamaHandler = new OllamaTicketProviderTests.Handler(_ =>
-            OllamaTicketProviderTests.Response("Local", null, null, []));
+            OllamaTicketProviderTests.Response("Local", null, null, ["Gather details", "Reproduce", "Verify"]));
         var options = Options.Create(new AiOptions
         {
             Provider = "ollama",

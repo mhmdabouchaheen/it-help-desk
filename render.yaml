@@ -1,0 +1,63 @@
+services:
+  - type: web
+    name: it-help-desk-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./server/HelpDesk.Api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_FORWARDEDHEADERS_ENABLED
+        value: "true"
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      - key: Jwt__Issuer
+        value: HelpDesk.Api
+      - key: Jwt__Audience
+        value: HelpDesk.Client
+      - key: Jwt__SecretKey
+        generateValue: true
+      - key: Jwt__AccessTokenLifetimeMinutes
+        value: "60"
+      - key: Jwt__RefreshTokenLifetimeDays
+        value: "7"
+      - key: Frontend__AllowedOrigins__0
+        sync: false
+      - key: Attachments__StorageRoot
+        value: /tmp/helpdesk-uploads
+      - key: Ai__Provider
+        value: Disabled
+      - key: Logging__LogLevel__Default
+        value: Information
+      - key: Logging__LogLevel__Microsoft.AspNetCore
+        value: Warning
+
+  - type: web
+    name: it-help-desk-client
+    runtime: static
+    plan: free
+    buildCommand: cd client/helpdesk-client && npm ci && npm run build
+    staticPublishPath: ./client/helpdesk-client/dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: no-referrer
+      - path: /*
+        name: Permissions-Policy
+        value: camera=(), microphone=(), geolocation=()

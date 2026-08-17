@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Complete user guide for the IT Help Desk and Ticketing Management System.">
+  <title>IT Help Desk — Complete User Guide</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --navy: #0f1d38;
+      --navy-2: #17294b;
+      --blue: #315fd7;
+      --blue-dark: #2449aa;
+      --blue-soft: #eaf1ff;
+      --cyan: #5cc8ff;
+      --ink: #14213d;
+      --muted: #60708d;
+      --line: #dce5f3;
+      --surface: #ffffff;
+      --surface-2: #f6f9fe;
+      --success: #18794e;
+      --warning: #9a5b00;
+      --danger: #c72e3b;
+      --shadow: 0 18px 48px rgba(25, 53, 105, .12);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 8%, rgba(92, 200, 255, .17), transparent 27rem),
+        linear-gradient(180deg, #edf4ff 0, #f8fbff 34rem, #f4f7fc 100%);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.65;
+    }
+    a { color: var(--blue-dark); }
+    a:hover { color: var(--blue); }
+    .skip-link { position: fixed; left: 1rem; top: -5rem; z-index: 20; background: white; padding: .8rem 1rem; border-radius: 10px; }
+    .skip-link:focus { top: 1rem; }
+    .hero { position: relative; overflow: hidden; color: white; background: linear-gradient(130deg, var(--navy), #153266 60%, #245bc8); }
+    .hero::before, .hero::after { content: ""; position: absolute; border: 1px solid rgba(255,255,255,.12); border-radius: 50%; }
+    .hero::before { width: 34rem; height: 34rem; right: -10rem; top: -16rem; }
+    .hero::after { width: 22rem; height: 22rem; right: 14rem; bottom: -17rem; }
+    .hero-inner { position: relative; max-width: 1180px; margin: auto; padding: 4.5rem 1.5rem 5rem; }
+    .brand { display: flex; align-items: center; gap: .85rem; margin-bottom: 4rem; font-weight: 750; }
+    .brand-mark { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 14px; background: #3766df; box-shadow: 0 12px 30px rgba(0,0,0,.22); }
+    .brand-mark svg { width: 25px; }
+    .eyebrow { margin: 0 0 .75rem; color: #bcd2ff; font-size: .78rem; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
+    h1 { max-width: 820px; margin: 0; font-size: clamp(2.4rem, 7vw, 5.2rem); line-height: 1.02; letter-spacing: -.055em; }
+    .lead { max-width: 760px; margin: 1.5rem 0 0; color: #d8e5ff; font-size: clamp(1.05rem, 2vw, 1.3rem); }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 2rem; }
+    .button { display: inline-flex; align-items: center; gap: .5rem; padding: .82rem 1.05rem; border-radius: 11px; font-weight: 750; text-decoration: none; }
+    .button-primary { background: white; color: var(--navy); }
+    .button-secondary { border: 1px solid rgba(255,255,255,.3); color: white; background: rgba(255,255,255,.08); }
+    .layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 2rem; max-width: 1180px; margin: -2rem auto 0; padding: 0 1.5rem 5rem; position: relative; }
+    .toc { align-self: start; position: sticky; top: 1rem; padding: 1.25rem; border: 1px solid rgba(220,229,243,.9); border-radius: var(--radius); background: rgba(255,255,255,.92); box-shadow: var(--shadow); backdrop-filter: blur(14px); }
+    .toc strong { display: block; margin-bottom: .7rem; font-size: .82rem; letter-spacing: .1em; text-transform: uppercase; }
+    .toc a { display: block; padding: .42rem .55rem; border-radius: 8px; color: var(--muted); font-size: .92rem; text-decoration: none; }
+    .toc a:hover, .toc a:focus { color: var(--blue-dark); background: var(--blue-soft); }
+    main { min-width: 0; }
+    section { margin-bottom: 1.5rem; padding: clamp(1.35rem, 3vw, 2.25rem); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: 0 10px 30px rgba(35,63,116,.06); }
+    section section { margin: 1.2rem 0 0; padding: 1.25rem; background: var(--surface-2); box-shadow: none; }
+    h2 { margin: 0 0 1rem; font-size: clamp(1.55rem, 3vw, 2.1rem); letter-spacing: -.03em; }
+    h3 { margin: 1.6rem 0 .55rem; font-size: 1.14rem; }
+    h4 { margin: 1.2rem 0 .35rem; }
+    p { margin: .6rem 0 1rem; }
+    ul, ol { padding-left: 1.3rem; }
+    li + li { margin-top: .38rem; }
+    code { padding: .12rem .36rem; border: 1px solid #d9e4f6; border-radius: 6px; background: #f2f6fd; font-family: "Cascadia Code", Consolas, monospace; font-size: .9em; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .card { padding: 1.2rem; border: 1px solid var(--line); border-radius: 14px; background: linear-gradient(145deg, white, #f8fbff); }
+    .card h3 { margin-top: 0; }
+    .role { border-top: 4px solid var(--blue); }
+    .role.support { border-top-color: #7048c9; }
+    .role.manager { border-top-color: #0f8a8a; }
+    .role.admin { border-top-color: #cf7a14; }
+    .tag { display: inline-flex; margin: .15rem .25rem .15rem 0; padding: .2rem .55rem; border-radius: 999px; background: var(--blue-soft); color: var(--blue-dark); font-size: .78rem; font-weight: 750; }
+    .callout { margin: 1rem 0; padding: 1rem 1.1rem; border-left: 4px solid var(--blue); border-radius: 0 12px 12px 0; background: var(--blue-soft); }
+    .callout.warning { border-color: #e69b2d; background: #fff7e8; }
+    .callout.danger { border-color: var(--danger); background: #fff0f2; }
+    .callout.success { border-color: var(--success); background: #edf9f3; }
+    .table-wrap { overflow-x: auto; margin: 1rem 0; border: 1px solid var(--line); border-radius: 13px; }
+    table { width: 100%; border-collapse: collapse; min-width: 680px; }
+    th, td { padding: .78rem .85rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: #eef4ff; color: #24375d; font-size: .82rem; letter-spacing: .035em; }
+    tr:last-child td { border-bottom: 0; }
+    .yes { color: var(--success); font-weight: 800; }
+    .limited { color: var(--warning); font-weight: 800; }
+    .no { color: var(--muted); }
+    .steps { counter-reset: steps; list-style: none; padding: 0; }
+    .steps > li { position: relative; min-height: 3rem; padding: .15rem 0 1.25rem 3.4rem; }
+    .steps > li::before { counter-increment: steps; content: counter(steps); position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 2.35rem; height: 2.35rem; border-radius: 50%; color: white; background: var(--blue); font-weight: 800; box-shadow: 0 7px 18px rgba(49,95,215,.25); }
+    .steps > li:not(:last-child)::after { content: ""; position: absolute; left: 1.15rem; top: 2.5rem; bottom: 0; width: 2px; background: #dbe5f7; }
+    .status-flow { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; margin: 1rem 0; }
+    .status { padding: .5rem .75rem; border: 1px solid #cbd9ef; border-radius: 9px; background: white; font-weight: 750; }
+    .arrow { color: #8090aa; font-weight: 800; }
+    details { margin: .65rem 0; border: 1px solid var(--line); border-radius: 12px; background: white; }
+    summary { cursor: pointer; padding: .9rem 1rem; font-weight: 750; }
+    details > div { padding: 0 1rem 1rem; }
+    footer { max-width: 1180px; margin: auto; padding: 0 1.5rem 3rem; color: var(--muted); text-align: center; font-size: .9rem; }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .toc { position: static; }
+      .toc nav { display: grid; grid-template-columns: repeat(2, 1fr); }
+      .grid, .grid-3 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 560px) {
+      .hero-inner { padding-top: 2rem; }
+      .brand { margin-bottom: 2.5rem; }
+      .layout { padding-inline: .8rem; }
+      section { border-radius: 14px; }
+      .toc nav { grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: white; font-size: 10.5pt; }
+      .hero { color: black; background: white; border-bottom: 2px solid #222; }
+      .hero-inner { padding: 1rem 0 1.5rem; }
+      .lead, .eyebrow { color: #333; }
+      .hero-actions, .toc { display: none; }
+      .layout { display: block; margin: 0; padding: 1rem 0; }
+      section { break-inside: avoid; box-shadow: none; }
+      a { color: black; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#guide">Skip to user guide</a>
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
+        </span>
+        <span>IT Help Desk · Support Workspace</span>
+      </div>
+      <p class="eyebrow">Complete product overview &amp; user handbook</p>
+      <h1>Understand every role, workflow, and feature.</h1>
+      <p class="lead">A practical guide to creating, managing, tracking, reporting, and safely resolving IT support tickets in the Help Desk system.</p>
+      <div class="hero-actions">
+        <a class="button button-primary" href="#quick-start">Start here</a>
+        <a class="button button-secondary" href="#roles">Compare roles</a>
+        <a class="button button-secondary" href="#ticket-workflow">View ticket workflow</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="toc" aria-label="Guide contents">
+      <strong>Contents</strong>
+      <nav>
+        <a href="#overview">System overview</a>
+        <a href="#quick-start">Quick start</a>
+        <a href="#roles">Users and roles</a>
+        <a href="#permissions">Permission matrix</a>
+        <a href="#navigation">Navigation</a>
+        <a href="#ticket-workflow">Ticket workflow</a>
+        <a href="#ticket-features">Ticket features</a>
+        <a href="#dashboard">Dashboard</a>
+        <a href="#notifications">Notifications</a>
+        <a href="#reports">Reports and exports</a>
+        <a href="#activity">Activity and history</a>
+        <a href="#ai">AI Analysis</a>
+        <a href="#security">Security and privacy</a>
+        <a href="#limitations">Important limitations</a>
+        <a href="#troubleshooting">Troubleshooting</a>
+      </nav>
+    </aside>
+
+    <main id="guide">
+      <section id="overview">
+        <p class="eyebrow">01 · Purpose</p>
+        <h2>System overview</h2>
+        <p>The IT Help Desk &amp; Ticketing Management System gives employees one place to report technical problems and gives support staff the tools to triage, assign, update, resolve, audit, and report on those requests.</p>
+        <div class="grid grid-3">
+          <div class="card"><h3>Request management</h3><p>Create structured requests with category, priority, description, attachments, comments, and a permanent ticket number.</p></div>
+          <div class="card"><h3>Support operations</h3><p>Assign eligible support users, update status, record internal notes, review activity, and preserve the complete history.</p></div>
+          <div class="card"><h3>Visibility &amp; insight</h3><p>Use dashboards, notifications, reports, PDF/Excel exports, and optional AI suggestions to understand support work.</p></div>
+        </div>
+        <div class="callout success"><strong>Core principle:</strong> the backend is authoritative. Menu visibility helps users, but every identity, ownership, role, and workflow rule is enforced by the API.</div>
+      </section>
+
+      <section id="quick-start">
+        <p class="eyebrow">02 · First use</p>
+        <h2>Quick start</h2>
+        <ol class="steps">
+          <li><strong>Create an account or sign in.</strong><br>Self-registration creates a normal Employee account. Users cannot select privileged roles during registration.</li>
+          <li><strong>Open the Dashboard.</strong><br>Review the ticket totals and recent tickets available to your account.</li>
+          <li><strong>Select Create Ticket.</strong><br>Enter a clear title, detailed description, category, and priority.</li>
+          <li><strong>Track the request.</strong><br>Open the ticket to add comments, attach files, review status, or see its history.</li>
+          <li><strong>Watch Notifications.</strong><br>Assignment, status, comments, attachments, and cancellation events can generate persistent notifications for relevant users.</li>
+          <li><strong>Sign out when finished.</strong><br>Use the logout icon next to the account name in the sidebar.</li>
+        </ol>
+        <div class="callout warning"><strong>Page refresh behavior:</strong> authentication tokens are held only in memory for security. A full browser refresh may require you to sign in again.</div>
+      </section>
+
+      <section id="roles">
+        <p class="eyebrow">03 · Access model</p>
+        <h2>What each user can do</h2>
+        <div class="grid">
+          <article class="card role">
+            <span class="tag">Ownership-scoped</span><h3>Employee</h3>
+            <ul><li>Create tickets.</li><li>See and search tickets they created.</li><li>Edit their own non-terminal, non-cancelled tickets.</li><li>Add public comments to accessible tickets.</li><li>Upload and download allowed attachments on owned tickets.</li><li>Cancel their own non-terminal tickets.</li><li>See their own dashboard data and notifications.</li></ul>
+          </article>
+          <article class="card role manager">
+            <span class="tag">Ownership-scoped</span><h3>Manager</h3>
+            <p>Manager currently follows the same ticket ownership rules as Employee. The role provides management presentation where applicable but does <strong>not</strong> grant support privileges.</p>
+            <ul><li>Create and manage tickets they created.</li><li>See ownership-scoped dashboard data.</li><li>Add public comments and attachments under the same business-state rules as Employee.</li></ul>
+          </article>
+          <article class="card role support">
+            <span class="tag">Support staff</span><h3>IT Support Agent</h3>
+            <ul><li>See organization-wide tickets and analytics.</li><li>Edit accessible ticket basics.</li><li>Assign tickets to active support users.</li><li>Move non-terminal tickets to any active status.</li><li>Add public comments and private internal notes.</li><li>Manage attachments across accessible tickets.</li><li>Use Reports, exports, and the global Activity Log.</li><li>Cancel tickets, while preserving their records.</li></ul>
+          </article>
+          <article class="card role admin">
+            <span class="tag">Full support access</span><h3>Admin</h3>
+            <p>Admin includes all support capabilities and has the broadest workflow authority.</p>
+            <ul><li>See and manage organization-wide support data.</li><li>Assign, change status, comment internally, cancel, report, export, and audit.</li><li>Reopen a ticket from a terminal status when required.</li><li>Use the optional AI Analysis feature on accessible tickets.</li></ul>
+          </article>
+        </div>
+        <div class="callout danger"><strong>No permanent ticket deletion:</strong> even Admin cannot delete a ticket. Cancellation is the supported final action because it preserves the request, comments, attachments, and audit history.</div>
+      </section>
+
+      <section id="permissions">
+        <p class="eyebrow">04 · Reference</p>
+        <h2>Permission matrix</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Capability</th><th>Employee</th><th>Manager</th><th>IT Support Agent</th><th>Admin</th></tr></thead>
+            <tbody>
+              <tr><td>Register through the public form</td><td class="yes">Yes</td><td class="limited">Account must be assigned role</td><td class="limited">Account must be assigned role</td><td class="limited">Development bootstrap/admin process</td></tr>
+              <tr><td>Create tickets</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+              <tr><td>View tickets</td><td class="limited">Own only</td><td class="limited">Own only</td><td class="yes">Organization-wide</td><td class="yes">Organization-wide</td></tr>
+              <tr><td>Edit title, description, category, priority</td><td class="limited">Own, while allowed</td><td class="limited">Own, while allowed</td><td class="yes">Accessible tickets</td><td class="yes">Accessible tickets</td></tr>
+              <tr><td>Assign to support staff</td><td class="no">No</td><td class="no">No</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+              <tr><td>Change workflow status</td><td class="no">No</td><td class="no">No</td><td class="limited">Cannot leave terminal status</td><td class="yes">Can also reopen</td></tr>
+              <tr><td>Add public comments</td><td class="limited">Own accessible tickets</td><td class="limited">Own accessible tickets</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+              <tr><td>Add internal notes</td><td class="no">No</td><td class="no">No</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+              <tr><td>Cancel tickets</td><td class="limited">Own, non-terminal</td><td class="limited">Own, non-terminal</td><td class="yes">Any accessible</td><td class="yes">Any accessible</td></tr>
+              <tr><td>Delete tickets permanently</td><td class="no">No</td><td class="no">No</td><td class="no">No</td><td class="no">No</td></tr>
+              <tr><td>Dashboard</td><td class="limited">Own data</td><td class="limited">Own data</td><td class="yes">Organization-wide</td><td class="yes">Organization-wide</td></tr>
+              <tr><td>Reports and PDF/Excel exports</td><td class="no">No</td><td class="no">No</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+              <tr><td>Global Activity Log</td><td class="no">No</td><td class="no">No</td><td class="yes">Yes</td><td class="yes">Yes</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="navigation">
+        <p class="eyebrow">05 · Pages</p>
+        <h2>Navigation guide</h2>
+        <div class="grid">
+          <div class="card"><h3>Dashboard</h3><p>Summary cards, status/priority/category charts, a six-month trend, and recently updated tickets.</p></div>
+          <div class="card"><h3>Tickets</h3><p>Search, filter, sort, paginate, and open tickets permitted by your role and ownership.</p></div>
+          <div class="card"><h3>Create Ticket</h3><p>Submit a new request using active categories and priorities supplied by the server.</p></div>
+          <div class="card"><h3>Notifications</h3><p>Review persistent events, filter unread items, mark one as read, or mark all as read.</p></div>
+          <div class="card"><h3>Reports</h3><p>Support-only analytics with applied filters and authenticated PDF/Excel downloads.</p></div>
+          <div class="card"><h3>Activity Log</h3><p>Support-only, read-only organization-wide operational history.</p></div>
+        </div>
+        <p>On phones and narrow screens, use the menu button to open the responsive sidebar. The bell icon provides quick access to notifications, and the New ticket button opens ticket creation.</p>
+      </section>
+
+      <section id="ticket-workflow">
+        <p class="eyebrow">06 · End-to-end workflow</p>
+        <h2>Ticket lifecycle</h2>
+        <div class="status-flow" aria-label="Typical ticket status flow">
+          <span class="status">Open</span><span class="arrow">→</span><span class="status">In Progress</span><span class="arrow">→</span><span class="status">Pending</span><span class="arrow">→</span><span class="status">Resolved</span><span class="arrow">→</span><span class="status">Closed</span>
+        </div>
+        <p>This is a typical path, not a mandatory sequence. From a non-terminal status, support staff may select any active status. <strong>Closed</strong> is currently the terminal workflow status. An Admin can reopen a terminal ticket; an IT Support Agent cannot.</p>
+        <ol class="steps">
+          <li><strong>Submission:</strong> a signed-in user provides title, detailed description, category, and priority. The system creates a unique ticket number and starts it as Open.</li>
+          <li><strong>Triage:</strong> support reviews the description, priority, category, attachments, and history. Optional AI Analysis can provide advisory suggestions.</li>
+          <li><strong>Assignment:</strong> support selects an active Admin or IT Support Agent. Reassignment ends the previous assignment record but preserves its history.</li>
+          <li><strong>Collaboration:</strong> users add public comments; support may add internal notes visible only within the permitted support workflow.</li>
+          <li><strong>Progress:</strong> support changes status and may record a transition note. Each actual status change is appended to history.</li>
+          <li><strong>Completion:</strong> the request can reach Resolved and then Closed. Records remain available according to role visibility.</li>
+        </ol>
+        <section>
+          <h3>Cancellation workflow</h3>
+          <p>Cancellation is separate from status. Cancelling sets a final cancellation timestamp, ends the current assignment, and preserves the actual workflow status. It does not create a “Cancelled” lookup status.</p>
+          <ul><li>Employees and Managers may cancel only their own non-terminal ticket.</li><li>Support staff may cancel any accessible ticket, including a terminal one.</li><li>Repeated cancellation requests are safe and do not duplicate the action.</li><li>Cancelled tickets remain readable, but editing, assigning, status changes, and new uploads are blocked.</li><li>Support may still add an audit-closure comment.</li></ul>
+        </section>
+      </section>
+
+      <section id="ticket-features">
+        <p class="eyebrow">07 · Working with tickets</p>
+        <h2>Ticket features</h2>
+        <h3>Search, filters, sorting, and paging</h3>
+        <p>The ticket list supports text search and filters for category, priority, status, creator, current assignee, and UTC creation dates where the interface exposes them. Sorting and paging are performed by the server, and list state is reflected in the URL for reliable navigation.</p>
+        <h3>Editing</h3>
+        <p>The Edit page changes only title, description, category, and priority. It cannot secretly change ownership, assignment, status, or identity. Owners cannot edit a terminal or cancelled ticket; support has broader edit access except that cancellation blocks edits for everyone.</p>
+        <h3>Comments and internal notes</h3>
+        <ul><li><strong>Public comments</strong> support communication on an accessible ticket.</li><li><strong>Internal notes</strong> are available only to Admin and IT Support Agent.</li><li>Comment text is displayed as plain text—HTML and Markdown are not executed.</li><li>Support can add closure/audit comments after cancellation; ordinary users cannot.</li></ul>
+        <h3>Attachments</h3>
+        <div class="grid">
+          <div class="card"><h3>Allowed</h3><p>PNG, JPG/JPEG, WEBP, PDF, TXT, DOCX, and XLSX. Maximum file size: <strong>10 MB</strong>.</p></div>
+          <div class="card"><h3>Protected</h3><p>Downloads require authentication. Files are not exposed as public links, and storage paths/keys/hashes are never shown.</p></div>
+        </div>
+        <p>Employees and Managers can upload to owned, non-terminal, non-cancelled tickets. Support can upload across accessible active tickets. Support can delete accessible attachments; non-support users may delete only an attachment they uploaded to their own ticket. Attachment deletion is soft deletion.</p>
+        <div class="callout warning"><strong>File safety:</strong> the system validates size, extension, content type, and basic signatures, but antivirus scanning is not implemented. Do not upload untrusted files in a production environment.</div>
+      </section>
+
+      <section id="dashboard">
+        <p class="eyebrow">08 · Analytics</p>
+        <h2>Dashboard</h2>
+        <p>The Dashboard presents backend-calculated information; the browser does not invent or recompute totals.</p>
+        <ul><li>Summary KPIs: total, Open, In Progress, Pending, Resolved, Closed, Cancelled, Critical, and Unassigned.</li><li>Status, priority, and category breakdowns.</li><li>Six-month Created, Closed, and Cancelled trend.</li><li>Eight most recently updated visible tickets.</li><li>Accessible list/table alternatives near charts.</li></ul>
+        <p>Admin and IT Support Agent see organization-wide data. Employee and Manager see only tickets they created. Cancelled tickets remain included in totals and in their actual status bucket, while also appearing in the separate Cancelled metric.</p>
+      </section>
+
+      <section id="notifications">
+        <p class="eyebrow">09 · Updates</p>
+        <h2>Notifications</h2>
+        <p>Notifications are stored persistently and may be refreshed in real time through SignalR. If the real-time connection is unavailable, the notification page and manual reload continue to work.</p>
+        <div class="grid">
+          <div class="card"><h3>Events</h3><p>Assignment, status change, public comment, internal comment, cancellation, and attachment-added events.</p></div>
+          <div class="card"><h3>Recipient safety</h3><p>Recipients come from saved ownership and assignment data. Users cannot choose arbitrary notification recipients.</p></div>
+        </div>
+        <ul><li>The acting user is excluded from their own event notification.</li><li>Recipients are de-duplicated.</li><li>Unread count appears in the sidebar and bell.</li><li>Mark-one and mark-all operations are idempotent.</li><li>Expired notifications are hidden from normal lists/counts.</li></ul>
+      </section>
+
+      <section id="reports">
+        <p class="eyebrow">10 · Support reporting</p>
+        <h2>Reports and exports</h2>
+        <p>Reports are available only to Admin and IT Support Agent. Draft filters do not change the report until applied, helping ensure the visible report and downloaded export use the same filter set.</p>
+        <ul><li>Summary metrics and safe breakdowns by status, priority, and category.</li><li>Bounded date trends.</li><li>Support-agent workload using display names and IDs, not private identity fields.</li><li>PDF export for presentation and printing.</li><li>Macro-free Excel export with Summary, Status, Priority, Categories, Trend, and Agent Workload sheets.</li></ul>
+        <div class="callout"><strong>Export privacy:</strong> exports omit emails, credentials, tokens, comments/internal notes, attachment contents, and storage information. Files are generated in memory and returned directly rather than saved by the server.</div>
+      </section>
+
+      <section id="activity">
+        <p class="eyebrow">11 · Traceability</p>
+        <h2>Activity Log and ticket history</h2>
+        <p>The system provides two related views:</p>
+        <ul><li><strong>Global Activity Log:</strong> read-only, paginated, and restricted to Admin and IT Support Agent.</li><li><strong>Ticket activity timeline:</strong> shown only after the normal ticket visibility check, so owners can see permitted history for their tickets while support can see accessible organization-wide history.</li></ul>
+        <p>Audit metadata uses an allowlist and records safe identifiers or changed-field names. It excludes comment bodies, internal-note text, cancellation reasons, filenames, file contents, storage paths, emails, passwords, tokens, secrets, and exception payloads.</p>
+        <div class="callout warning"><strong>Operational audit:</strong> activity writing is best effort. It is useful for this project’s operational traceability but is not a compliance-grade transactional audit system.</div>
+      </section>
+
+      <section id="ai">
+        <p class="eyebrow">12 · Optional assistance</p>
+        <h2>AI Ticket Analysis</h2>
+        <p>The AI Analysis card appears inside ticket details and runs only when the user selects <strong>Analyze Ticket</strong>. It can provide:</p>
+        <ul><li>A factual 2–4 sentence ticket summary.</li><li>A recommended category selected from active system categories.</li><li>A recommended priority selected from active system priorities.</li><li>Three to five actionable troubleshooting and verification suggestions.</li></ul>
+        <div class="callout danger"><strong>Advisory only:</strong> AI never edits, assigns, changes status, comments, cancels, or applies its own recommendations. A human must review every suggestion.</div>
+        <p>The browser sends only the ticket ID to the backend. The backend retrieves the permitted ticket and sends only its title, description, and allowed lookup names to the selected provider. User identity details, tokens, attachments, comments, and internal notes are excluded.</p>
+        <h3>Provider options</h3>
+        <ul><li><strong>Ollama:</strong> free local model option. Ollama and the configured model must be installed and running on the backend computer.</li><li><strong>OpenAI:</strong> requires a valid API key and separately funded API billing. ChatGPT Plus does not include API credit.</li></ul>
+        <p>If AI is unavailable, normal ticket management continues without interruption.</p>
+      </section>
+
+      <section id="security">
+        <p class="eyebrow">13 · Safe usage</p>
+        <h2>Security and privacy</h2>
+        <div class="grid">
+          <div class="card"><h3>Authentication</h3><p>JWT access tokens and rotating refresh tokens protect API access. Identity and roles come from validated claims, never browser-supplied user IDs.</p></div>
+          <div class="card"><h3>Passwords</h3><p>Passwords are managed through ASP.NET Core Identity. They are never returned, logged, or manually hashed by application features.</p></div>
+          <div class="card"><h3>Authorization</h3><p>Ownership and support permissions are enforced on the server. Inaccessible tickets are often reported as not found to avoid revealing their existence.</p></div>
+          <div class="card"><h3>Local configuration</h3><p>Secrets belong only in ignored local settings or environment variables. Never commit API keys, JWT secrets, database passwords, or Admin credentials.</p></div>
+        </div>
+        <h3>Good user practices</h3>
+        <ul><li>Use a unique password and do not share accounts.</li><li>Sign out on shared computers.</li><li>Do not paste passwords, tokens, or secret keys into tickets or comments.</li><li>Avoid uploading sensitive files unless the organization permits it.</li><li>Review the recipient and ticket before adding internal or public information.</li><li>Treat downloaded attachments as potentially untrusted.</li></ul>
+      </section>
+
+      <section id="limitations">
+        <p class="eyebrow">14 · Know before deployment</p>
+        <h2>Important limitations</h2>
+        <ul><li>A browser refresh can end the visible session because frontend tokens are memory-only.</li><li>No permanent ticket deletion exists.</li><li>No email, SMS, or browser-push notification channel is implemented.</li><li>Local attachments require persistent storage and do not include malware scanning.</li><li>Multi-server deployment requires SignalR scale-out and shared/object attachment storage.</li><li>Activity logging is best effort rather than compliance-grade.</li><li>AI is optional, provider-dependent, and may be slow when a local model first loads.</li><li>The Manager role is currently ownership-scoped and does not imply support access.</li><li>Production database migrations must be applied explicitly; startup does not migrate or reset the database.</li></ul>
+      </section>
+
+      <section id="troubleshooting">
+        <p class="eyebrow">15 · Help</p>
+        <h2>Troubleshooting</h2>
+        <details open><summary>I cannot sign in</summary><div>Confirm the exact email address, password, and backend URL. Development Admin credentials come from the ignored local configuration, not the example placeholders. If the configured email already existed, bootstrap does not reset its password.</div></details>
+        <details><summary>I refreshed and returned to Login</summary><div>This is expected with the current memory-only browser session. Sign in again; no token is stored in localStorage, sessionStorage, or IndexedDB.</div></details>
+        <details><summary>I cannot see Reports or Activity Log</summary><div>Those pages require Admin or IT Support Agent. Employee and Manager roles do not receive support-only navigation or API access.</div></details>
+        <details><summary>I cannot see another employee’s ticket</summary><div>Employee and Manager access is restricted to tickets they created. Support staff can see organization-wide tickets.</div></details>
+        <details><summary>I cannot edit, assign, upload, or change status</summary><div>The ticket may be cancelled, terminal, outside your ownership, or the action may require a support role. The server’s current ticket state determines what is allowed.</div></details>
+        <details><summary>AI Analysis says temporarily unavailable</summary><div>For Ollama, confirm the Ollama application is running, the configured model is downloaded, and the backend was restarted after configuration changes. For OpenAI, verify the key, billing quota, model access, and network connectivity.</div></details>
+        <details><summary>Notifications are not arriving immediately</summary><div>Use the Notifications page or reload it. Persistent REST notifications work even if SignalR/WebSocket real-time hints are temporarily disconnected.</div></details>
+        <details><summary>An attachment is rejected</summary><div>Confirm it is 10 MB or smaller and uses an allowed extension and content type. Renaming an unsupported file does not make it valid.</div></details>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <p><strong>IT Help Desk &amp; Ticketing Management System</strong><br>This guide describes the implemented application behavior. Backend authorization remains authoritative.</p>
+  </footer>
+</body>
+</html>
