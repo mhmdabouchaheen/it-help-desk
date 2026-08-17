@@ -7,8 +7,10 @@ import { AppRoles, RoleGroups } from "../auth/roles";
 import { useLookups } from "../auth/useLookups";
 import { useTicketDetail } from "../auth/useTicketDetail";
 import { invalidateSupportUsers, useSupportUsers } from "../auth/useSupportUsers";
-import { ErrorSummary, LoadingIndicator } from "../components/Feedback";
-import {CancelledBadge,TicketPriorityBadge,TicketStatusBadge} from "../components/Badges";
+import { EmptyState, ErrorSummary, LoadingIndicator } from "../components/Feedback";
+import {CancelledBadge,TicketPriorityBadge,TicketStatusBadge,VisibilityBadge} from "../components/Badges";
+import {AuditTrail} from "../components/AuditTrail";
+import {AiAnalysisCard} from "../components/AiAnalysisCard";
 import { formatDate, isGuid } from "../utils/tickets";
 export function TicketDetailPage() {
   const { id } = useParams();
@@ -171,6 +173,7 @@ function Detail({ id }: { id: string }) {
         <h2>Description</h2>
         <p className="preserve-lines">{ticket.description}</p>
       </section>
+      <AiAnalysisCard ticketId={ticket.id}/>
       {cancelled&&<section role="status"><h2><CancelledBadge/></h2><p>This cancellation is final. Cancelled on {formatDate(ticket.cancelledAtUtc!)}. The workflow status remains {ticket.statusName}.</p></section>}
       {canCancel&&<section><h2>Cancel ticket</h2>{!showCancel?<button type="button" onClick={()=>setShowCancel(true)}>Cancel ticket</button>:<form onSubmit={cancelTicket}><p>This permanently makes the ticket read-only. Its history and attachments will be preserved.</p><label>Optional cancellation reason<textarea maxLength={500} value={cancelReason} onChange={e=>setCancelReason(e.target.value)}/></label><button disabled={cancelling}>{cancelling?'Cancelling…':'Confirm cancellation'}</button><button type="button" disabled={cancelling} onClick={()=>setShowCancel(false)}>Keep ticket</button></form>}</section>}
       <div id="action-error" aria-live="polite"><ErrorSummary message={actionError} /></div>
@@ -233,14 +236,14 @@ function Detail({ id }: { id: string }) {
       <section>
         <h2>Comments</h2>
         {ticket.comments.length === 0 ? (
-          <p>No comments yet.</p>
+          <EmptyState title="No comments yet" detail="Updates and discussion will appear here."/>
         ) : (
           <ul className="history">
             {ticket.comments.map((x) => (
               <li key={x.id}>
                 <strong>{x.authorDisplayName}</strong> ·{" "}
                 {formatDate(x.createdAtUtc)}{" "}
-                {x.visibility === "Internal" && <mark>Internal</mark>}
+                {x.visibility === "Internal" && <VisibilityBadge visibility={x.visibility}/>}
                 <p className="preserve-lines">{x.body}</p>
               </li>
             ))}
@@ -270,7 +273,7 @@ function Detail({ id }: { id: string }) {
       <section>
         <h2>Assignment history</h2>
         {ticket.assignmentHistory.length === 0 ? (
-          <p>No assignment history.</p>
+          <EmptyState title="No assignment history"/>
         ) : (
           <ul className="history">
             {ticket.assignmentHistory.map((x) => (
@@ -287,7 +290,7 @@ function Detail({ id }: { id: string }) {
       <section>
         <h2>Status history</h2>
         {ticket.statusHistory.length === 0 ? (
-          <p>No status history.</p>
+          <EmptyState title="No status history"/>
         ) : (
           <ul className="history">
             {ticket.statusHistory.map((x) => (
@@ -310,7 +313,7 @@ function Detail({ id }: { id: string }) {
           <button disabled={!attachmentFile||attachmentBusy!==undefined}>{attachmentBusy==='upload'?'Uploading…':'Upload attachment'}</button>
         </form>}
         {ticket.attachments.length === 0 ? (
-          <p>No attachments.</p>
+          <EmptyState title="No attachments" detail="Files added to this ticket will appear here."/>
         ) : (
           <ul className="history">
             {ticket.attachments.map((x) => (
@@ -322,6 +325,7 @@ function Detail({ id }: { id: string }) {
           </ul>
         )}
       </section>
+      <AuditTrail ticketId={ticket.id}/>
     </section>
   );
 }

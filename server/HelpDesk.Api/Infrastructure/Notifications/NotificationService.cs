@@ -1,4 +1,5 @@
 using HelpDesk.Api.Application.Common.Exceptions;
+using HelpDesk.Api.Application.Audit;
 using HelpDesk.Api.Application.Notifications;
 using HelpDesk.Api.Contracts.Common;
 using HelpDesk.Api.Contracts.Notifications;
@@ -10,7 +11,8 @@ namespace HelpDesk.Api.Infrastructure.Notifications;
 
 /// <summary>EF-backed, recipient-scoped persistent notification operations.</summary>
 public sealed class NotificationService(ApplicationDbContext db, TimeProvider timeProvider,
-    INotificationRealtimePublisher realtimePublisher, ILogger<NotificationService> logger) : INotificationService
+    INotificationRealtimePublisher realtimePublisher, ILogger<NotificationService> logger,
+    IActivityLogService? activityLogs = null) : INotificationService
 {
     public async Task CreateAsync(Guid recipientUserId, Guid? ticketId, string type, string title, string message,
         DateTime? expiresAtUtc = null, CancellationToken cancellationToken = default)
@@ -75,13 +77,14 @@ public sealed class NotificationService(ApplicationDbContext db, TimeProvider ti
         ValidateUser(currentUserId); if(notificationId==Guid.Empty) throw new NotificationValidationException();
         var item=await db.Notifications.SingleOrDefaultAsync(x=>x.Id==notificationId&&x.RecipientUserId==currentUserId,cancellationToken)
             ?? throw new NotificationNotFoundException();
-        if(item.ReadAtUtc is null){item.ReadAtUtc=timeProvider.GetUtcNow().UtcDateTime;await db.SaveChangesAsync(cancellationToken);}
+        if(item.ReadAtUtc is null){item.ReadAtUtc=timeProvider.GetUtcNow().UtcDateTime;await db.SaveChangesAsync(cancellationToken);await TryAuditAsync(currentUserId,ActivityActions.NotificationMarkedRead,item.Id.ToString(),new Dictionary<string,string?>{{"notificationId",item.Id.ToString()}},cancellationToken);}
     }
 
     public async Task MarkAllAsReadAsync(Guid currentUserId, CancellationToken cancellationToken = default)
     {
         ValidateUser(currentUserId);var items=await db.Notifications.Where(x=>x.RecipientUserId==currentUserId&&x.ReadAtUtc==null).ToListAsync(cancellationToken);
-        if(items.Count==0)return;var now=timeProvider.GetUtcNow().UtcDateTime;foreach(var item in items)item.ReadAtUtc=now;await db.SaveChangesAsync(cancellationToken);
+        if(items.Count==0)return;var now=timeProvider.GetUtcNow().UtcDateTime;foreach(var item in items)item.ReadAtUtc=now;await db.SaveChangesAsync(cancellationToken);await TryAuditAsync(currentUserId,ActivityActions.NotificationMarkedAllRead,currentUserId.ToString(),new Dictionary<string,string?>{{"count",items.Count.ToString()}},cancellationToken);
     }
+    private async Task TryAuditAsync(Guid actor,string action,string id,IReadOnlyDictionary<string,string?> metadata,CancellationToken token){if(activityLogs is null)return;try{await activityLogs.WriteAsync(actor,action,ActivityEntityTypes.Notification,id,metadata,token);}catch(Exception exception){logger.LogWarning(exception,"Activity logging failed after notification operation {Action}.",action);}}
     private static void ValidateUser(Guid id){if(id==Guid.Empty)throw new NotificationValidationException();}
 }

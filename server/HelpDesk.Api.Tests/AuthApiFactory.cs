@@ -3,16 +3,22 @@ using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text;
 using HelpDesk.Api.Application.Auth;
+using HelpDesk.Api.Application.Audit;
 using HelpDesk.Api.Application.Attachments;
 using HelpDesk.Api.Application.Dashboard;
 using HelpDesk.Api.Application.Tickets;
 using HelpDesk.Api.Application.Notifications;
+using HelpDesk.Api.Application.Reports;
+using HelpDesk.Api.Application.Ai;
 using HelpDesk.Api.Application.Users;
 using HelpDesk.Api.Contracts.Auth;
+using HelpDesk.Api.Contracts.Audit;
 using HelpDesk.Api.Contracts.Common;
 using HelpDesk.Api.Contracts.Dashboard;
 using HelpDesk.Api.Contracts.Tickets;
 using HelpDesk.Api.Contracts.Notifications;
+using HelpDesk.Api.Contracts.Reports;
+using HelpDesk.Api.Contracts.Ai;
 using HelpDesk.Api.Contracts.Users;
 using HelpDesk.Api.Data;
 using Microsoft.AspNetCore.Hosting;
@@ -38,11 +44,21 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
         AuthenticationService = new Mock<IAuthenticationService>();
         TicketAttachmentService = new Mock<ITicketAttachmentService>();
         DashboardService = new Mock<IDashboardService>();
+        ReportService = new Mock<IReportService>();
+        ReportExportService = new Mock<IReportExportService>();
+        AiTicketAnalysisService = new Mock<IAiTicketAnalysisService>();
         NotificationService = new Mock<INotificationService>();
+        ActivityLogService = new Mock<IActivityLogService>();
+        ActivityLogService.Setup(x=>x.GetPagedAsync(It.IsAny<ActivityLogListRequest>(),It.IsAny<CancellationToken>())).ReturnsAsync(new PagedResponse<ActivityLogResponse>{PageNumber=1,PageSize=20});
+        ActivityLogService.Setup(x=>x.GetForTicketAsync(It.IsAny<Guid>(),It.IsAny<CancellationToken>())).ReturnsAsync([]);
         NotificationService.Setup(x=>x.GetPagedAsync(It.IsAny<Guid>(),It.IsAny<NotificationListRequest>(),It.IsAny<CancellationToken>())).ReturnsAsync(new PagedResponse<NotificationResponse>{PageNumber=1,PageSize=20});
         NotificationService.Setup(x=>x.GetUnreadCountAsync(It.IsAny<Guid>(),It.IsAny<CancellationToken>())).ReturnsAsync(new NotificationUnreadCountResponse());
         DashboardService.Setup(x => x.GetDashboardAsync(It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new DashboardResponse());
+        ReportService.Setup(x => x.GetTicketReportAsync(It.IsAny<TicketReportRequest>(), It.IsAny<CancellationToken>())).ReturnsAsync(new TicketReportResponse());
+        ReportExportService.Setup(x=>x.ExportTicketReportPdfAsync(It.IsAny<TicketReportRequest>(),It.IsAny<CancellationToken>())).ReturnsAsync(new ReportExportResult([1,2,3],"application/pdf","ticket-report-20260817-120000.pdf"));
+        ReportExportService.Setup(x=>x.ExportTicketReportExcelAsync(It.IsAny<TicketReportRequest>(),It.IsAny<CancellationToken>())).ReturnsAsync(new ReportExportResult([1,2,3],"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","ticket-report-20260817-120000.xlsx"));
+        AiTicketAnalysisService.Setup(x=>x.AnalyzeTicketAsync(It.IsAny<Guid>(),It.IsAny<TicketAccessContext>(),It.IsAny<CancellationToken>())).ReturnsAsync(new AiTicketAnalysisResponse{Summary="Safe summary"});
         AuthenticationService.Setup(service => service.RegisterAsync(
                 It.IsAny<RegisterRequest>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(AuthResponse());
@@ -93,7 +109,11 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
     public Mock<ITicketLookupService> TicketLookupService { get; }
     public Mock<ITicketAttachmentService> TicketAttachmentService { get; }
     public Mock<IDashboardService> DashboardService { get; }
+    public Mock<IReportService> ReportService { get; }
+    public Mock<IReportExportService> ReportExportService { get; }
+    public Mock<IAiTicketAnalysisService> AiTicketAnalysisService { get; }
     public Mock<INotificationService> NotificationService { get; }
+    public Mock<IActivityLogService> ActivityLogService { get; }
     public Mock<ISupportUserDirectoryService> SupportUserDirectoryService { get; }
     public static Guid TicketId { get; } = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
     public static Guid CommentId { get; } = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
@@ -134,6 +154,7 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
             {
                 ["ConnectionStrings:DefaultConnection"] =
                     "Host=127.0.0.1;Port=1;Database=not_used;Username=test;Password=test",
+                ["Frontend:AllowedOrigins:0"] = "https://frontend.test",
                 ["Jwt:Issuer"] = TestIssuer,
                 ["Jwt:Audience"] = TestAudience,
                 ["Jwt:SecretKey"] = TestSecret,
@@ -151,12 +172,20 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
             services.AddSingleton(TicketAttachmentService.Object);
             services.RemoveAll<ITicketService>();
             services.RemoveAll<IDashboardService>();
+            services.RemoveAll<IReportService>();
+            services.RemoveAll<IReportExportService>();
+            services.RemoveAll<IAiTicketAnalysisService>();
             services.RemoveAll<INotificationService>();
+            services.RemoveAll<IActivityLogService>();
             services.RemoveAll<ITicketLookupService>();
             services.RemoveAll<ISupportUserDirectoryService>();
             services.AddSingleton(TicketService.Object);
             services.AddSingleton(DashboardService.Object);
+            services.AddSingleton(ReportService.Object);
+            services.AddSingleton(ReportExportService.Object);
+            services.AddSingleton(AiTicketAnalysisService.Object);
             services.AddSingleton(NotificationService.Object);
+            services.AddSingleton(ActivityLogService.Object);
             services.AddSingleton(TicketLookupService.Object);
             services.AddSingleton(SupportUserDirectoryService.Object);
         });

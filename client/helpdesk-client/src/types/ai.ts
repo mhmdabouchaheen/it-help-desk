@@ -1,0 +1,1 @@
+export interface AiTicketAnalysisResponse{summary:string;recommendedCategoryId:number|null;recommendedCategoryName:string|null;recommendedPriorityId:number|null;recommendedPriorityName:string|null;troubleshootingSuggestions:string[];disclaimer:string}

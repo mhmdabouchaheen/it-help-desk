@@ -8,6 +8,8 @@ using HelpDesk.Api.Application.Authorization;
 using HelpDesk.Api.Application.Tickets;
 using HelpDesk.Api.Application.Users;
 using HelpDesk.Api.Application.Notifications;
+using HelpDesk.Api.Application.Reports;
+using HelpDesk.Api.Application.Ai;
 using HelpDesk.Api.Configuration;
 using HelpDesk.Api.Data;
 using HelpDesk.Api.Entities;
@@ -19,6 +21,9 @@ using HelpDesk.Api.Infrastructure.ExceptionHandling;
 using HelpDesk.Api.Infrastructure.Tickets;
 using HelpDesk.Api.Infrastructure.Users;
 using HelpDesk.Api.Infrastructure.Notifications;
+using HelpDesk.Api.Infrastructure.Reports;
+using HelpDesk.Api.Infrastructure.Ai;
+using HelpDesk.Api.Infrastructure.Identity;
 using HelpDesk.Api.Hubs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
@@ -56,6 +61,7 @@ builder.Services.AddOpenApi(options =>
     });
 });
 builder.Services.AddProblemDetails();
+builder.Services.AddHealthChecks();
 builder.Services.AddSignalR();
 builder.Services.AddOptions<AttachmentOptions>()
     .Bind(builder.Configuration.GetSection(AttachmentOptions.SectionName))
@@ -66,6 +72,11 @@ builder.Services.AddOptions<AttachmentOptions>()
     .Validate(x => x.AllowedExtensions.All(v => new[] { ".png", ".jpg", ".jpeg", ".webp", ".pdf", ".txt", ".docx", ".xlsx" }.Contains(v.StartsWith('.') ? v.ToLowerInvariant() : "." + v.ToLowerInvariant())), "Attachment extensions contain an unsafe or unsupported value.")
     .ValidateOnStart();
 var frontendOrigins = builder.Configuration.GetSection("Frontend:AllowedOrigins").Get<string[]>() ?? [];
+if (!builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing") && frontendOrigins.Length == 0)
+    throw new InvalidOperationException("At least one production frontend origin must be configured.");
+if (frontendOrigins.Any(origin => origin.Contains('*') || !Uri.TryCreate(origin,UriKind.Absolute,out var uri) ||
+    uri.Scheme is not ("http" or "https")))
+    throw new InvalidOperationException("Frontend origins must be explicit absolute HTTP or HTTPS origins without wildcards.");
 builder.Services.AddCors(options => options.AddPolicy("Frontend", policy =>
     policy.WithOrigins(frontendOrigins).AllowAnyHeader().AllowAnyMethod()));
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -189,7 +200,23 @@ builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddSingleton<IAttachmentStorage, LocalAttachmentStorage>();
 builder.Services.AddScoped<ITicketAttachmentService, TicketAttachmentService>();
 builder.Services.AddScoped<ITicketService, TicketService>();
+builder.Services.AddScoped<HelpDesk.Api.Application.Audit.IActivityLogService, HelpDesk.Api.Infrastructure.Audit.ActivityLogService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<IReportExportService, ReportExportService>();
+builder.Services.Configure<AiOptions>(builder.Configuration.GetSection(AiOptions.SectionName));
+builder.Services.AddScoped<IAiTicketAnalysisService,AiTicketAnalysisService>();
+builder.Services.AddHttpClient<OpenAiTicketProvider>((services, client) =>
+{
+    var options = services.GetRequiredService<IOptions<AiOptions>>().Value;
+    client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 5, 300));
+});
+builder.Services.AddHttpClient<OllamaTicketProvider>((services, client) =>
+{
+    var options = services.GetRequiredService<IOptions<AiOptions>>().Value;
+    client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 5, 300));
+});
+builder.Services.AddScoped<IAiTicketProvider, ConfiguredAiTicketProvider>();
 builder.Services.AddScoped<ITicketLookupService, TicketLookupService>();
 builder.Services.AddScoped<ISupportUserDirectoryService, SupportUserDirectoryService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
@@ -197,9 +224,34 @@ builder.Services.AddSingleton<INotificationRealtimePublisher, SignalRNotificatio
 builder.Services.AddScoped<ITicketNotificationService, TicketNotificationService>();
 builder.Services.AddSingleton<ITicketAccessContextFactory, TicketAccessContextFactory>();
 builder.Services.AddSingleton<ITicketNumberGenerator, TicketNumberGenerator>();
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.Configure<DevelopmentAdminOptions>(
+        builder.Configuration.GetSection(DevelopmentAdminOptions.SectionName));
+    builder.Services.AddScoped<DevelopmentAdminBootstrapper>();
+}
 
 var app = builder.Build();
 
+if (app.Environment.IsDevelopment())
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    await scope.ServiceProvider.GetRequiredService<DevelopmentAdminBootstrapper>().ExecuteAsync();
+}
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.XContentTypeOptions = "nosniff";
+    context.Response.Headers.XFrameOptions = "DENY";
+    context.Response.Headers.Append("Referrer-Policy", "no-referrer");
+    context.Response.Headers.Append("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    await next();
+});
 app.UseExceptionHandler();
 app.UseCors("Frontend");
 
@@ -214,25 +266,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<NotificationHub>("/hubs/notifications");
-
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+app.MapHealthChecks("/healthz").ExcludeFromDescription();
 
 app.Run();
 
@@ -262,11 +296,6 @@ static Task WriteAuthenticationProblemAsync(
         problem,
         jsonOptions,
         cancellationToken: httpContext.RequestAborted);
-}
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
 }
 
 /// <summary>Exposes the application entry point to the integration-test host.</summary>

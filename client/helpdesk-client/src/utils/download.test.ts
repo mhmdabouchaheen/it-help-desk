@@ -1,0 +1,3 @@
+import{afterEach,describe,expect,it,vi}from'vitest'
+import{downloadBlob}from'./download'
+describe('downloadBlob',()=>{afterEach(()=>vi.restoreAllMocks());it('uses and immediately revokes a temporary object URL',()=>{const blob=new Blob(['safe']);const create=vi.spyOn(URL,'createObjectURL').mockReturnValue('blob:temporary');const revoke=vi.spyOn(URL,'revokeObjectURL').mockImplementation(()=>undefined);const click=vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(()=>undefined);downloadBlob(blob,'report.pdf');expect(create).toHaveBeenCalledWith(blob);expect(click).toHaveBeenCalledOnce();expect(revoke).toHaveBeenCalledWith('blob:temporary');expect(document.querySelector('a[download]')).not.toBeInTheDocument()})})

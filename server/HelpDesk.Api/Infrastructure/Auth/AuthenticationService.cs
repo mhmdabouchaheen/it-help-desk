@@ -1,4 +1,5 @@
 using HelpDesk.Api.Application.Auth;
+using HelpDesk.Api.Application.Audit;
 using HelpDesk.Api.Application.Authorization;
 using HelpDesk.Api.Application.Common.Exceptions;
 using HelpDesk.Api.Contracts.Auth;
@@ -18,18 +19,21 @@ public sealed class AuthenticationService : IAuthenticationService
     private readonly IAccessTokenService _accessTokenService;
     private readonly IRefreshTokenService _refreshTokenService;
     private readonly ILogger<AuthenticationService> _logger;
+    private readonly IActivityLogService? _activityLogs;
 
     /// <summary>Initializes a new authentication application service.</summary>
     public AuthenticationService(
         UserManager<User> userManager,
         IAccessTokenService accessTokenService,
         IRefreshTokenService refreshTokenService,
-        ILogger<AuthenticationService> logger)
+        ILogger<AuthenticationService> logger,
+        IActivityLogService? activityLogs = null)
     {
         _userManager = userManager;
         _accessTokenService = accessTokenService;
         _refreshTokenService = refreshTokenService;
         _logger = logger;
+        _activityLogs = activityLogs;
     }
 
     /// <inheritdoc />
@@ -109,7 +113,9 @@ public sealed class AuthenticationService : IAuthenticationService
 
         cancellationToken.ThrowIfCancellationRequested();
         var roles = await _userManager.GetRolesAsync(user);
-        return await IssueCredentialsAsync(user, roles, ipAddress, cancellationToken);
+        var response=await IssueCredentialsAsync(user, roles, ipAddress, cancellationToken);
+        await TryAuditAsync(user.Id,ActivityActions.UserRegistered,cancellationToken);
+        return response;
     }
 
     /// <inheritdoc />
@@ -135,7 +141,9 @@ public sealed class AuthenticationService : IAuthenticationService
 
         cancellationToken.ThrowIfCancellationRequested();
         var roles = await _userManager.GetRolesAsync(user);
-        return await IssueCredentialsAsync(user, roles, ipAddress, cancellationToken);
+        var response=await IssueCredentialsAsync(user, roles, ipAddress, cancellationToken);
+        await TryAuditAsync(user.Id,ActivityActions.UserLoggedIn,cancellationToken);
+        return response;
     }
 
     /// <inheritdoc />
@@ -306,5 +314,13 @@ public sealed class AuthenticationService : IAuthenticationService
                 "Registration compensation failed for user {UserId}.",
                 user.Id);
         }
+    }
+
+    private async Task TryAuditAsync(Guid userId,string action,CancellationToken token)
+    {
+        if(_activityLogs is null)return;
+        try{await _activityLogs.WriteAsync(userId,action,ActivityEntityTypes.User,userId.ToString(),
+            new Dictionary<string,string?>{{"userId",userId.ToString()}},token);}
+        catch(Exception exception){_logger.LogWarning(exception,"Activity logging failed after authentication action {Action} for user {UserId}.",action,userId);}
     }
 }

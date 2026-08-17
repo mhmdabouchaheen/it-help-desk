@@ -5,5 +5,6 @@ function priorityTone(name:string):BadgeTone{const value=normalize(name);if(['cr
 export function Badge({children,tone='neutral'}:{children:React.ReactNode;tone?:BadgeTone}){return <span className={`badge badge-${tone}`}>{children}</span>}
 export function TicketStatusBadge({name}:{name:string}){return <Badge tone={statusTone(name)}>{name}</Badge>}
 export function TicketPriorityBadge({name}:{name:string}){return <Badge tone={priorityTone(name)}>{name}</Badge>}
-export function CancelledBadge(){return <Badge tone="danger">Cancelled</Badge>}
+export function CancelledBadge(){return <span className="cancelled-badge badge badge-danger">Cancelled</span>}
 export function RoleBadge({name}:{name:string}){return <Badge tone="accent">{name}</Badge>}
+export function VisibilityBadge({visibility}:{visibility:string}){return <Badge tone={normalize(visibility)==='internal'?'warning':'neutral'}>{visibility}</Badge>}

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { getTicketsAsync } from "../api/tickets";
 import { useLookups } from "../auth/useLookups";
-import { ErrorSummary, LoadingIndicator } from "../components/Feedback";
+import { EmptyState, ErrorSummary, LoadingIndicator } from "../components/Feedback";
 import {
   formatDate,
   parseTicketQuery,
@@ -163,7 +163,7 @@ export function TicketListPage() {
       </form>
       <ErrorSummary message={error ?? lookups.error} />
       {!data && !error && <LoadingIndicator />}
-      {data?.items.length === 0 && <p>No tickets match these filters.</p>}
+      {data?.items.length === 0 && <EmptyState title="No tickets found" detail="Try adjusting or clearing the current filters."/>}
       {data && data.items.length > 0 && (
         <div className="table-wrap">
           <table>

@@ -1,4 +1,5 @@
 using HelpDesk.Api.Application.Authorization;
+using HelpDesk.Api.Application.Audit;
 using HelpDesk.Api.Application.Common.Exceptions;
 using HelpDesk.Api.Application.Tickets;
 using HelpDesk.Api.Application.Notifications;
@@ -17,7 +18,8 @@ public sealed class TicketService(
     ITicketNumberGenerator ticketNumberGenerator,
     TimeProvider timeProvider,
     ILogger<TicketService> logger,
-    ITicketNotificationService ticketNotifications) : ITicketService
+    ITicketNotificationService ticketNotifications,
+    IActivityLogService? activityLogs = null) : ITicketService
 {
     private const string InitialStatusName = "Open";
     private const string ReferenceNumberIndex = "IX_Tickets_ReferenceNumber";
@@ -82,6 +84,8 @@ public sealed class TicketService(
             }
         }
 
+        await TryAuditAsync(accessContext.UserId,ActivityActions.TicketCreated,ticket.Id,
+            new Dictionary<string,string?>{{"referenceNumber",ticket.ReferenceNumber},{"categoryId",ticket.CategoryId.ToString()},{"priorityId",ticket.PriorityId.ToString()}},cancellationToken);
         return await GetByIdAsync(ticket.Id, accessContext, cancellationToken);
     }
 
@@ -211,11 +215,8 @@ public sealed class TicketService(
         await ValidateCategoryAsync(request.CategoryId, cancellationToken);
         await ValidatePriorityAsync(request.PriorityId, cancellationToken);
 
-        var changed = ticket.Title != title ||
-            ticket.Description != description ||
-            ticket.CategoryId != request.CategoryId ||
-            ticket.PriorityId != request.PriorityId;
-        if (changed)
+        var changedFields=new List<string>();if(ticket.Title!=title)changedFields.Add("title");if(ticket.Description!=description)changedFields.Add("description");if(ticket.CategoryId!=request.CategoryId)changedFields.Add("categoryId");if(ticket.PriorityId!=request.PriorityId)changedFields.Add("priorityId");
+        if (changedFields.Count>0)
         {
             ticket.Title = title;
             ticket.Description = description;
@@ -223,6 +224,8 @@ public sealed class TicketService(
             ticket.PriorityId = request.PriorityId;
             ticket.UpdatedAtUtc = timeProvider.GetUtcNow().UtcDateTime;
             await dbContext.SaveChangesAsync(cancellationToken);
+            await TryAuditAsync(accessContext.UserId,ActivityActions.TicketUpdated,ticketId,
+                new Dictionary<string,string?>{{"changedFields",string.Join(',',changedFields)}},cancellationToken);
         }
 
         return await GetByIdAsync(ticketId, accessContext, cancellationToken);
@@ -287,6 +290,8 @@ public sealed class TicketService(
             ticketId, request.AssignedToUserId, accessContext.UserId, assignment.Id);
         await TryNotifyAsync(() => ticketNotifications.NotifyAssignmentAsync(ticket.Id,ticket.ReferenceNumber,
             request.AssignedToUserId,accessContext.UserId,cancellationToken),ticket.Id);
+        await TryAuditAsync(accessContext.UserId,ActivityActions.TicketAssigned,ticketId,
+            new Dictionary<string,string?>{{"assignedToUserId",request.AssignedToUserId.ToString()},{"previousAssignedToUserId",current?.AssignedToUserId.ToString()}},cancellationToken);
         return await GetByIdAsync(ticketId, accessContext, cancellationToken);
     }
 
@@ -339,6 +344,8 @@ public sealed class TicketService(
             ticketId, targetStatus.Id, accessContext.UserId, history.Id);
         await TryNotifyAsync(() => ticketNotifications.NotifyStatusChangedAsync(ticket.Id,ticket.ReferenceNumber,
             ticket.CreatedByUserId,accessContext.UserId,targetStatus.Name,cancellationToken),ticket.Id);
+        await TryAuditAsync(accessContext.UserId,ActivityActions.TicketStatusChanged,ticketId,
+            new Dictionary<string,string?>{{"fromStatusId",currentStatus.Id.ToString()},{"toStatusId",targetStatus.Id.ToString()}},cancellationToken);
         return await GetByIdAsync(ticketId, accessContext, cancellationToken);
     }
 
@@ -394,6 +401,8 @@ public sealed class TicketService(
             comment.Id, ticketId, accessContext.UserId);
         await TryNotifyAsync(() => ticketNotifications.NotifyCommentAddedAsync(ticket.Id,ticket.ReferenceNumber,
             ticket.CreatedByUserId,ticket.AssignedToUserId,accessContext.UserId,request.IsInternal,cancellationToken),ticket.Id);
+        await TryAuditAsync(accessContext.UserId,request.IsInternal?ActivityActions.TicketInternalCommentAdded:ActivityActions.TicketCommentAdded,ticketId,
+            new Dictionary<string,string?>{{"commentId",comment.Id.ToString()},{"visibility",comment.Visibility}},cancellationToken);
         return new TicketCommentResponse
         {
             Id = comment.Id,
@@ -426,6 +435,7 @@ public sealed class TicketService(
         await dbContext.SaveChangesAsync(cancellationToken);
         await TryNotifyAsync(() => ticketNotifications.NotifyTicketCancelledAsync(ticket.Id,ticket.ReferenceNumber,
             ticket.CreatedByUserId,previousAssigneeId,accessContext.UserId,cancellationToken),ticket.Id);
+        await TryAuditAsync(accessContext.UserId,ActivityActions.TicketCancelled,ticketId,null,cancellationToken);
         return await GetByIdAsync(ticketId, accessContext, cancellationToken);
     }
 
@@ -433,6 +443,12 @@ public sealed class TicketService(
     {
         try{await action();}
         catch(Exception exception){logger.LogWarning(exception,"Notification creation failed after ticket {TicketId} was persisted.",ticketId);}
+    }
+
+    private async Task TryAuditAsync(Guid actor,string action,Guid ticketId,IReadOnlyDictionary<string,string?>? metadata,CancellationToken token)
+    {
+        if(activityLogs is null)return;try{await activityLogs.WriteAsync(actor,action,ActivityEntityTypes.Ticket,ticketId.ToString(),metadata,token);}
+        catch(Exception exception){logger.LogWarning(exception,"Activity logging failed after ticket {TicketId} was persisted.",ticketId);}
     }
 
     private void RequireSupport(TicketAccessContext accessContext)

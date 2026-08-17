@@ -11,3 +11,13 @@ appsettings.Local.json
 .vs/
 .vscode/
 server/HelpDesk.Api/Data/Uploads/
+coverage/
+TestResults/
+*.coverage
+*.coveragexml
+*.db
+*.sqlite
+*.sqlite3
+*.log
+tmp/
+temp/

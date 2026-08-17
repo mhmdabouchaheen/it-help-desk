@@ -87,6 +87,9 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
         AttachmentUnavailableException => new(503, "Attachment unavailable", exception.Message, "attachment_unavailable"),
         NotificationNotFoundException => new(404, "Notification not found", exception.Message, "notification_not_found"),
         NotificationValidationException => new(400, "Notification validation failed", exception.Message, "notification_validation_failed"),
+        ActivityLogValidationException => new(400, "Activity log validation failed", exception.Message, "activity_log_validation_failed"),
+        AiServiceUnavailableException => new(503, "AI analysis unavailable", exception.Message, "ai_service_unavailable"),
+        AiProviderException => new(502, "AI provider failure", "AI analysis could not be completed.", "ai_provider_failed", true),
         ArgumentException => new(400, "Invalid request", "One or more request values are invalid.", "invalid_argument"),
         _ => new(500, "Internal server error", "An unexpected error occurred.", "internal_server_error", true)
     };

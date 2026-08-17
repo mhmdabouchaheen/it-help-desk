@@ -1,0 +1,74 @@
+.auth-page.auth-background {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 45%, rgb(194 220 255 / 68%) 0, transparent 34rem),
+    radial-gradient(circle at 8% 12%, rgb(217 232 255 / 75%) 0, transparent 24rem),
+    linear-gradient(145deg, #f8fbff 0%, #eef5fc 52%, #f6f9fd 100%);
+}
+
+.auth-background::before,
+.auth-background::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.auth-background::before {
+  inset: 0;
+  background-image:
+    linear-gradient(rgb(77 124 181 / 7%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(77 124 181 / 7%) 1px, transparent 1px),
+    radial-gradient(circle, rgb(48 103 174 / 22%) 1.25px, transparent 1.5px);
+  background-size: 64px 64px, 64px 64px, 32px 32px;
+  mask-image: linear-gradient(90deg, #000 0%, transparent 35%, transparent 65%, #000 100%);
+}
+
+.auth-background::after {
+  width: min(38vw, 34rem);
+  aspect-ratio: 1;
+  top: -9rem;
+  right: -8rem;
+  border: 1px solid rgb(73 126 190 / 12%);
+  border-radius: 38% 62% 55% 45%;
+  box-shadow:
+    -18rem 33rem 0 5rem rgb(116 162 216 / 5%),
+    0 0 0 3rem rgb(91 143 205 / 3%),
+    0 0 0 7rem rgb(91 143 205 / 3%);
+  transform: rotate(18deg);
+}
+
+.auth-background .auth-card {
+  position: relative;
+  border-color: rgb(199 212 229 / 88%);
+  background: rgb(255 255 255 / 97%);
+  box-shadow:
+    0 24px 60px rgb(39 72 112 / 14%),
+    0 4px 14px rgb(39 72 112 / 7%);
+  backdrop-filter: blur(8px);
+}
+
+@media (max-width: 600px) {
+  .auth-background::before {
+    background-size: 48px 48px, 48px 48px, 24px 24px;
+    opacity: 0.55;
+    mask-image: linear-gradient(90deg, #000 0%, transparent 24%, transparent 76%, #000 100%);
+  }
+
+  .auth-background::after {
+    display: none;
+  }
+
+  .auth-background .auth-card {
+    box-shadow: 0 16px 40px rgb(39 72 112 / 12%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-background::before,
+  .auth-background::after {
+    animation: none;
+  }
+}

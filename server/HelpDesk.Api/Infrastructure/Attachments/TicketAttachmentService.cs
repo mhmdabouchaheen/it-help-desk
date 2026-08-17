@@ -1,4 +1,5 @@
 using HelpDesk.Api.Application.Attachments;
+using HelpDesk.Api.Application.Audit;
 using HelpDesk.Api.Application.Authorization;
 using HelpDesk.Api.Application.Common.Exceptions;
 using HelpDesk.Api.Application.Tickets;
@@ -15,7 +16,8 @@ namespace HelpDesk.Api.Infrastructure.Attachments;
 /// <summary>Applies ticket access, content policy, and metadata persistence for attachments.</summary>
 public sealed class TicketAttachmentService(ApplicationDbContext dbContext, IAttachmentStorage storage,
     IOptions<AttachmentOptions> configuredOptions, TimeProvider timeProvider, ILogger<TicketAttachmentService> logger,
-    ITicketNotificationService ticketNotifications)
+    ITicketNotificationService ticketNotifications,
+    IActivityLogService? activityLogs = null)
     : ITicketAttachmentService
 {
     private readonly AttachmentOptions options = configuredOptions.Value;
@@ -62,6 +64,8 @@ public sealed class TicketAttachmentService(ApplicationDbContext dbContext, IAtt
         try { await ticketNotifications.NotifyAttachmentAddedAsync(ticket.Id,ticket.ReferenceNumber,ticket.CreatedByUserId,
             ticket.AssignedToUserId,accessContext.UserId,cancellationToken); }
         catch(Exception exception) { logger.LogWarning(exception,"Notification creation failed after attachment {AttachmentId} was persisted.",entity.Id); }
+        await TryAuditAsync(accessContext.UserId,ActivityActions.TicketAttachmentUploaded,ticketId,
+            new Dictionary<string,string?>{{"attachmentId",entity.Id.ToString()},{"contentType",entity.ContentType},{"sizeBytes",entity.SizeBytes.ToString()}},cancellationToken);
         var displayName = await dbContext.Users.AsNoTracking().Where(x => x.Id == accessContext.UserId).Select(x => x.DisplayName).SingleAsync(cancellationToken);
         return Response(entity, displayName);
     }
@@ -89,7 +93,12 @@ public sealed class TicketAttachmentService(ApplicationDbContext dbContext, IAtt
         var now = timeProvider.GetUtcNow().UtcDateTime; attachment.DeletedAtUtc = now; ticket.UpdatedAtUtc = now; await dbContext.SaveChangesAsync(cancellationToken);
         try { await storage.DeleteAsync(attachment.StorageKey, cancellationToken); }
         catch (Exception exception) { logger.LogError(exception, "Physical cleanup failed for soft-deleted attachment {AttachmentId} using {StorageProvider}.", attachment.Id, attachment.StorageProvider); }
+        await TryAuditAsync(accessContext.UserId,ActivityActions.TicketAttachmentDeleted,ticketId,
+            new Dictionary<string,string?>{{"attachmentId",attachment.Id.ToString()}},cancellationToken);
     }
+
+    private async Task TryAuditAsync(Guid actor,string action,Guid ticketId,IReadOnlyDictionary<string,string?> metadata,CancellationToken token)
+    {if(activityLogs is null)return;try{await activityLogs.WriteAsync(actor,action,ActivityEntityTypes.Ticket,ticketId.ToString(),metadata,token);}catch(Exception exception){logger.LogWarning(exception,"Activity logging failed after attachment operation for ticket {TicketId}.",ticketId);}}
 
     private static bool IsSupport(TicketAccessContext access) => access.Roles.Contains(AppRoles.Admin) || access.Roles.Contains(AppRoles.ItSupportAgent);
     private static void ValidateIdsAndAccess(Guid ticketId, TicketAccessContext access) { if (ticketId == Guid.Empty) throw new TicketNotFoundException(); if (access is null || access.UserId == Guid.Empty) throw new AttachmentAccessDeniedException(); }

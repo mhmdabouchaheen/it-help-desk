@@ -27,7 +27,10 @@ export function createNotificationConnection(options: NotificationConnectionOpti
 
   const build = () => {
     const next = new HubConnectionBuilder()
-      .withUrl(`${apiBaseUrl}/hubs/notifications`, { accessTokenFactory: () => options.getAccessToken() ?? '' })
+      .withUrl(`${apiBaseUrl}/hubs/notifications`, {
+        accessTokenFactory: () => options.getAccessToken() ?? '',
+        withCredentials: false,
+      })
       .withAutomaticReconnect()
       .configureLogging(LogLevel.Warning)
       .build()

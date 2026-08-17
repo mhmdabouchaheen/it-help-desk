@@ -69,6 +69,8 @@ backend authorization policies and services remain authoritative.
 
 ## Configuration and development
 
+The authenticated `/app/activity` route presents a read-only, paginated activity feed and is shown in navigation only to Admin and IT Support Agent users. Backend policy remains authoritative. Ticket details include a newest-first audit timeline retrieved through the ticket-scoped endpoint. Both views render only plain text from the backend's safe metadata map and never use HTML injection.
+
 Copy `.env.example` to an ignored local `.env` and set the public client
 configuration `VITE_API_BASE_URL`. Vite variables are shipped to browsers and
 must never contain secrets. The example uses `https://localhost:7233`, matching
@@ -139,3 +141,11 @@ Ticket details render only safe attachment metadata. Uploads use authenticated m
 # Ticket cancellation
 
 Eligible ticket-detail views expose an accessible two-step cancellation section with an optional 500-character reason. No optimistic state is applied: the returned detail replaces local state. Cancelled details show the authoritative timestamp and final-state explanation while retaining the actual workflow status, histories, comments, and attachment downloads. Prohibited edit, assignment, status, upload, and non-support comment controls are hidden. Ticket lists show a separate Cancelled marker alongside the real status. Role checks are presentation-only; backend ownership, terminal-state, and authorization rules remain authoritative.
+
+# Authenticated report exports
+
+The support-only Reports page keeps editable draft filters separate from the filters applied to the visible report. PDF and Excel buttons send only the applied filter object to authenticated backend export endpoints, ensuring the downloaded values match the screen. Responses are handled as Blobs through the shared API client, including refresh behavior. Downloads use a temporary object URL and anchor that are removed immediately after the click; protected export URLs, tokens, and file contents are never persisted or logged in the browser.
+
+# AI ticket analysis
+
+Ticket detail includes a secondary, explicitly triggered AI Analysis card. The browser sends only the ticket identifier through the authenticated API client; ticket content and provider configuration stay on the backend. Results are advisory text with nullable category/priority suggestions, bounded troubleshooting items, and a visible review disclaimer. Failures remain isolated from all normal ticket controls. Output uses normal React text rendering, with no HTML/Markdown interpretation and no automatic application action.

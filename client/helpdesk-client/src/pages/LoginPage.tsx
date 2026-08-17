@@ -25,5 +25,5 @@ export function LoginPage() {
     <label htmlFor="password">Password</label><input id="password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} aria-invalid={!!errors.password} aria-describedby={errors.password ? 'password-error' : undefined}/><FieldError id="password-error" message={errors.password}/>
     <button disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button></form><p>New here? <Link to="/register">Create an account</Link></p></AuthCard>
 }
-function AuthCard({ title, children }: { title: string; children: React.ReactNode }) { return <main className="auth-page"><section className="auth-card"><h1>{title}</h1>{children}</section></main> }
+function AuthCard({ title, children }: { title: string; children: React.ReactNode }) { return <main className="auth-page auth-background"><section className="auth-card"><h1>{title}</h1>{children}</section></main> }
 export { AuthCard }
