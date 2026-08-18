@@ -23,4 +23,11 @@
     <PackageReference Include="PDFsharp-MigraDoc" Version="6.2.4" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\Fonts\DejaVuSans.ttf"
+                      LogicalName="HelpDesk.Api.Assets.Fonts.DejaVuSans.ttf" />
+    <EmbeddedResource Include="Assets\Fonts\DejaVuSans-Bold.ttf"
+                      LogicalName="HelpDesk.Api.Assets.Fonts.DejaVuSans-Bold.ttf" />
+  </ItemGroup>
+
 </Project>

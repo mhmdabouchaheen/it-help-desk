@@ -35,6 +35,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
+ReportPdfFontConfiguration.Configure();
 
 if (builder.Environment.IsDevelopment())
 {
