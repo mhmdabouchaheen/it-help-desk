@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 import * as authApi from '../api/authApi'
 import { ApiProblemError } from '../api/apiClient'
 import { tokenStore } from './tokenStore'
+import { invalidateSupportUsers } from './useSupportUsers'
 import type { CurrentUserResponse, LoginRequest, RegisterRequest } from '../types/auth'
 
 interface AuthContextValue {
@@ -23,15 +24,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isInitializing] = useState(false)
 
   const acceptAuth = useCallback(async (auth: Awaited<ReturnType<typeof authApi.loginAsync>>) => {
+    invalidateSupportUsers()
     tokenStore.set({ accessToken: auth.accessToken, refreshToken: auth.refreshToken })
     setUser({ userId: auth.userId, email: auth.email, displayName: auth.displayName, roles: auth.roles, isActive: true })
   }, [])
   const login = useCallback(async (request: LoginRequest) => acceptAuth(await authApi.loginAsync(request)), [acceptAuth])
   const register = useCallback(async (request: RegisterRequest) => acceptAuth(await authApi.registerAsync(request)), [acceptAuth])
-  const logout = useCallback(async () => { try { await authApi.logoutAsync() } finally { tokenStore.clear(); setUser(null) } }, [])
+  const logout = useCallback(async () => { try { await authApi.logoutAsync() } finally { invalidateSupportUsers(); tokenStore.clear(); setUser(null) } }, [])
   const reloadCurrentUser = useCallback(async () => {
-    try { setUser(await authApi.getCurrentUserAsync()) }
-    catch (error) { if (error instanceof ApiProblemError && error.status === 401) { tokenStore.clear(); setUser(null) } throw error }
+    try { const currentUser = await authApi.getCurrentUserAsync(); invalidateSupportUsers(); setUser(currentUser) }
+    catch (error) { if (error instanceof ApiProblemError && error.status === 401) { invalidateSupportUsers(); tokenStore.clear(); setUser(null) } throw error }
   }, [])
   const hasRole = useCallback((role: string) => user?.roles.includes(role) ?? false, [user])
   const hasAnyRole = useCallback((roles: readonly string[]) => roles.some(hasRole), [hasRole])
