@@ -247,6 +247,44 @@ public sealed class TicketServiceTests
         Assert.Equal("file.txt", detail.Attachments[0].OriginalFileName);
     }
 
+    [Theory]
+    [InlineData(AppRoles.Employee)]
+    [InlineData(AppRoles.Manager)]
+    public async Task GetById_NonSupportOwnerSeesOnlyPublicComments(string role)
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var (ticket, _) = await fixture.AddTicketsAsync();
+        await fixture.AddMixedCommentsAsync(ticket);
+
+        var detail = await fixture.Service.GetByIdAsync(
+            ticket.Id, fixture.Access(fixture.OwnerId, role));
+
+        var comment = Assert.Single(detail.Comments);
+        Assert.Equal("Public update", comment.Body);
+        Assert.Equal(TicketCommentVisibilities.Public, comment.Visibility);
+        Assert.DoesNotContain(detail.Comments, x => x.Body == "Internal diagnosis");
+    }
+
+    [Theory]
+    [InlineData(AppRoles.Admin)]
+    [InlineData(AppRoles.ItSupportAgent)]
+    public async Task GetById_SupportSeesPublicAndInternalCommentsInOriginalOrder(string role)
+    {
+        await using var fixture = await Fixture.CreateAsync();
+        var (ticket, _) = await fixture.AddTicketsAsync();
+        await fixture.AddMixedCommentsAsync(ticket);
+
+        var detail = await fixture.Service.GetByIdAsync(
+            ticket.Id, fixture.Access(fixture.OwnerId, role));
+
+        Assert.Equal(
+            ["Public update", "Internal diagnosis"],
+            detail.Comments.Select(x => x.Body));
+        Assert.Equal(
+            [TicketCommentVisibilities.Public, TicketCommentVisibilities.Internal],
+            detail.Comments.Select(x => x.Visibility));
+    }
+
     [Fact]
     public async Task GetById_RejectsEmptyAndMissingIds()
     {
@@ -626,6 +664,30 @@ public sealed class TicketServiceTests
             Db.TicketAttachments.Add(new TicketAttachment { Id = Guid.NewGuid(), TicketId = ticket.Id, UploadedByUserId = OwnerId, OriginalFileName = "file.txt", ContentType = "text/plain", SizeBytes = 1, StorageProvider = "test", StorageKey = "secret", CreatedAtUtc = Now.UtcDateTime });
             Db.TicketAssignments.Add(new TicketAssignment { Id = Guid.NewGuid(), TicketId = ticket.Id, AssignedToUserId = OtherId, AssignedByUserId = OwnerId, AssignedAtUtc = Now.UtcDateTime });
             Db.TicketStatusHistory.Add(new TicketStatusHistory { Id = Guid.NewGuid(), TicketId = ticket.Id, FromStatusId = null, ToStatusId = 1, ChangedByUserId = OwnerId, ChangedAtUtc = Now.UtcDateTime });
+            await Db.SaveChangesAsync();
+        }
+
+        public async Task AddMixedCommentsAsync(Ticket ticket)
+        {
+            Db.TicketComments.AddRange(
+                new TicketComment
+                {
+                    Id = Guid.Parse("10000000-0000-0000-0000-000000000001"),
+                    TicketId = ticket.Id,
+                    AuthorUserId = OwnerId,
+                    Body = "Public update",
+                    Visibility = TicketCommentVisibilities.Public,
+                    CreatedAtUtc = Now.UtcDateTime.AddMinutes(-2)
+                },
+                new TicketComment
+                {
+                    Id = Guid.Parse("20000000-0000-0000-0000-000000000002"),
+                    TicketId = ticket.Id,
+                    AuthorUserId = OtherId,
+                    Body = "Internal diagnosis",
+                    Visibility = TicketCommentVisibilities.Internal,
+                    CreatedAtUtc = Now.UtcDateTime.AddMinutes(-1)
+                });
             await Db.SaveChangesAsync();
         }
 

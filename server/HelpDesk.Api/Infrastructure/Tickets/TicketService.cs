@@ -177,7 +177,7 @@ public sealed class TicketService(
         var detail = await ProjectDetails(ticketQuery).SingleOrDefaultAsync(cancellationToken)
             ?? throw new TicketNotFoundException();
 
-        detail = await PopulateHistoryAsync(detail, cancellationToken);
+        detail = await PopulateHistoryAsync(detail, support, cancellationToken);
         return detail;
     }
 
@@ -633,10 +633,17 @@ public sealed class TicketService(
             CancelledAtUtc = ticket.CancelledAtUtc
         });
 
-    private async Task<TicketDetailResponse> PopulateHistoryAsync(TicketDetailResponse detail, CancellationToken cancellationToken)
+    private async Task<TicketDetailResponse> PopulateHistoryAsync(
+        TicketDetailResponse detail,
+        bool includeInternalComments,
+        CancellationToken cancellationToken)
     {
-        var comments = await dbContext.TicketComments.AsNoTracking()
-            .Where(x => x.TicketId == detail.Id && x.DeletedAtUtc == null)
+        var commentQuery = dbContext.TicketComments.AsNoTracking()
+            .Where(x => x.TicketId == detail.Id && x.DeletedAtUtc == null);
+        if (!includeInternalComments)
+            commentQuery = commentQuery.Where(x => x.Visibility == TicketCommentVisibilities.Public);
+
+        var comments = await commentQuery
             .OrderBy(x => x.CreatedAtUtc).ThenBy(x => x.Id)
             .Select(x => new TicketCommentResponse
             {
