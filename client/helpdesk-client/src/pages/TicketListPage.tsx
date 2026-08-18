@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { getTicketsAsync } from "../api/tickets";
 import { useLookups } from "../auth/useLookups";
@@ -10,6 +10,7 @@ import {
 } from "../utils/tickets";
 import type { PagedResponse, TicketSummaryResponse } from "../types/tickets";
 import {CancelledBadge,TicketPriorityBadge,TicketStatusBadge} from "../components/Badges";
+import { useRefreshOnFocus } from "../auth/useRefreshOnFocus";
 export function TicketListPage() {
   const [params, setParams] = useSearchParams();
   const request = useMemo(() => parseTicketQuery(params), [params]);
@@ -17,16 +18,29 @@ export function TicketListPage() {
   const [data, setData] = useState<PagedResponse<TicketSummaryResponse>>();
   const [error, setError] = useState<string>();
   const [search, setSearch] = useState(request.search ?? "");
-  useEffect(() => {
-    const c = new AbortController();
-    getTicketsAsync(request, c.signal)
-      .then(setData)
+  const controller = useRef<AbortController>(undefined);
+  const sequence = useRef(0);
+  const reload = useCallback(() => {
+    controller.current?.abort();
+    const current = ++sequence.current;
+    const abort = new AbortController();
+    controller.current = abort;
+    setError(undefined);
+    getTicketsAsync(request, abort.signal)
+      .then((value) => { if (current === sequence.current && !abort.signal.aborted) setData(value) })
       .catch((e) => {
-        if ((e as Error).name !== "AbortError")
+        if (current === sequence.current && !abort.signal.aborted && (e as Error).name !== "AbortError")
           setError("Tickets could not be loaded.");
       });
-    return () => c.abort();
   }, [request]);
+  useRefreshOnFocus(reload);
+  useEffect(() => {
+    // The initial request intentionally clears stale request errors before loading the current URL query.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    reload();
+    const active = controller.current;
+    return () => active?.abort();
+  }, [reload]);
   function update(values: Record<string, string | undefined>) {
     const next = new URLSearchParams(params);
     for (const [k, v] of Object.entries(values)) {

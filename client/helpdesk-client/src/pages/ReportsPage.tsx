@@ -45,7 +45,7 @@ export function ReportsPage() {
   const [filters, setFilters] = useState<TicketReportRequest>({});
   const [exporting, setExporting] = useState<"pdf" | "excel">();
   const [exportError, setExportError] = useState(false);
-  const report = useReports(filters);
+  const report = useReports(filters, exporting === undefined);
   async function exportReport(format: "pdf" | "excel") {
     if (exporting) return;
     setExporting(format);

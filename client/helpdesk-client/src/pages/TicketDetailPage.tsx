@@ -7,6 +7,7 @@ import { AppRoles, RoleGroups } from "../auth/roles";
 import { useLookups } from "../auth/useLookups";
 import { useTicketDetail } from "../auth/useTicketDetail";
 import { invalidateSupportUsers, useSupportUsers } from "../auth/useSupportUsers";
+import { useRefreshOnFocus } from "../auth/useRefreshOnFocus";
 import { EmptyState, ErrorSummary, LoadingIndicator } from "../components/Feedback";
 import {CancelledBadge,TicketPriorityBadge,TicketStatusBadge,VisibilityBadge} from "../components/Badges";
 import {AuditTrail} from "../components/AuditTrail";
@@ -45,6 +46,7 @@ function Detail({ id }: { id: string }) {
   const [showCancel, setShowCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  useRefreshOnFocus(reload, !loading && !busy && !assigning && attachmentBusy === undefined && !cancelling);
   if (loading) return <LoadingIndicator />;
   if (error || !ticket)
     return (
