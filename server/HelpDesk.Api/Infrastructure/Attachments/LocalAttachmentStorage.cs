@@ -48,7 +48,7 @@ public sealed class LocalAttachmentStorage : IAttachmentStorage
 
     private string Resolve(string key)
     {
-        if (string.IsNullOrWhiteSpace(key) || Path.IsPathRooted(key) || key != Path.GetFileName(key)) throw new ArgumentException("Invalid storage key.", nameof(key));
+        if (string.IsNullOrWhiteSpace(key) || key.Contains('/') || key.Contains('\\') || Path.IsPathRooted(key) || key != Path.GetFileName(key)) throw new ArgumentException("Invalid storage key.", nameof(key));
         var path = Path.GetFullPath(Path.Combine(root, key));
         if (!path.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) throw new ArgumentException("Invalid storage key.", nameof(key));
         return path;
