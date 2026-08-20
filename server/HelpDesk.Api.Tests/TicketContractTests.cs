@@ -36,6 +36,9 @@ public class TicketContractTests
     public void List_DefaultsPageSize() => Assert.Equal(20, new TicketListRequest().PageSize);
 
     [Fact]
+    public void List_DefaultsToUpdatedAtDescending() { var request=new TicketListRequest(); Assert.Equal(TicketSortFields.UpdatedAtUtc,request.SortBy); Assert.Equal(SortDirections.Descending,request.SortDirection); }
+
+    [Fact]
     public void List_RejectsPageSizeOver100() => AssertInvalid(new TicketListRequest { PageSize = 101 }, nameof(PagedRequest.PageSize));
 
     [Fact]

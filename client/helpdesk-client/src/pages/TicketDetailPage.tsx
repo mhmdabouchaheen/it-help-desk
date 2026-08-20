@@ -46,6 +46,8 @@ function Detail({ id }: { id: string }) {
   const [showCancel, setShowCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const [auditVersion, setAuditVersion] = useState(0);
+  const refreshAudit = () => setAuditVersion(value => value + 1);
   useRefreshOnFocus(reload, !loading && !busy && !assigning && attachmentBusy === undefined && !cancelling);
   if (loading) return <LoadingIndicator />;
   if (error || !ticket)
@@ -73,6 +75,7 @@ function Detail({ id }: { id: string }) {
           note: note.trim() || null,
         }),
       );
+      refreshAudit();
     } catch {
       setActionError(
         "Status could not be changed. The backend may reject this transition.",
@@ -97,6 +100,7 @@ function Detail({ id }: { id: string }) {
       setContent("");
       setInternal(false);
       await reload();
+      refreshAudit();
     } catch {
       setActionError("Comment could not be added.");
     } finally {
@@ -111,6 +115,7 @@ function Detail({ id }: { id: string }) {
     try {
       setTicket(await assignTicketAsync(id, { assignedToUserId: assigneeId, note: assignmentNote.trim() || null }));
       setAssignmentNote("");
+      refreshAudit();
     } catch (error) {
       if (error instanceof ApiProblemError && error.code === "assignment_target_not_found") {
         setActionError("The selected support user is no longer available. Reload the support-user list and try again.");
@@ -128,10 +133,10 @@ function Detail({ id }: { id: string }) {
     if(!['.png','.jpg','.jpeg','.webp','.pdf','.txt','.docx','.xlsx'].includes(extension)){setActionError('That file type is not allowed.');e.target.value='';return}
     if(file.size<=0||file.size>10*1024*1024){setActionError('Attachments must be between 1 byte and 10 MB.');e.target.value='';return}setAttachmentFile(file)
   }
-  async function uploadAttachment(e:FormEvent){e.preventDefault();if(!attachmentFile||attachmentBusy)return;setAttachmentBusy('upload');setActionError(undefined);try{const uploaded=await uploadTicketAttachmentAsync(id,attachmentFile);setTicket({...currentTicket,attachments:[...currentTicket.attachments,uploaded]});setAttachmentFile(undefined);if(fileInput.current)fileInput.current.value=''}catch(error){setActionError(error instanceof ApiProblemError&&error.code==='attachment_too_large'?'The attachment exceeds the 10 MB limit.':error instanceof ApiProblemError&&error.code==='attachment_validation_failed'?'The attachment did not pass validation.':'The attachment could not be uploaded.')}finally{setAttachmentBusy(undefined)}}
+  async function uploadAttachment(e:FormEvent){e.preventDefault();if(!attachmentFile||attachmentBusy)return;setAttachmentBusy('upload');setActionError(undefined);try{const uploaded=await uploadTicketAttachmentAsync(id,attachmentFile);setTicket({...currentTicket,attachments:[...currentTicket.attachments,uploaded]});setAttachmentFile(undefined);if(fileInput.current)fileInput.current.value='';refreshAudit()}catch(error){setActionError(error instanceof ApiProblemError&&error.code==='attachment_too_large'?'The attachment exceeds the 10 MB limit.':error instanceof ApiProblemError&&error.code==='attachment_validation_failed'?'The attachment did not pass validation.':'The attachment could not be uploaded.')}finally{setAttachmentBusy(undefined)}}
   async function downloadAttachment(attachmentId:string,fileName:string){if(attachmentBusy)return;setAttachmentBusy(attachmentId);setActionError(undefined);try{const blob=await downloadTicketAttachmentAsync(id,attachmentId);const url=URL.createObjectURL(blob);try{const link=document.createElement('a');link.href=url;link.download=fileName;link.click()}finally{URL.revokeObjectURL(url)}}catch{setActionError('The attachment could not be downloaded.')}finally{setAttachmentBusy(undefined)}}
-  async function deleteAttachment(attachmentId:string){if(attachmentBusy||!window.confirm('Delete this attachment?'))return;setAttachmentBusy(attachmentId);setActionError(undefined);try{await deleteTicketAttachmentAsync(id,attachmentId);setTicket({...currentTicket,attachments:currentTicket.attachments.filter(x=>x.id!==attachmentId)})}catch{setActionError('The attachment could not be deleted.')}finally{setAttachmentBusy(undefined)}}
-  async function cancelTicket(e:FormEvent){e.preventDefault();if(!canCancel||cancelling||cancelReason.length>500)return;setCancelling(true);setActionError(undefined);try{setTicket(await cancelTicketAsync(id,{reason:cancelReason.trim()||null}));setShowCancel(false);setCancelReason('')}catch{setActionError('The ticket could not be cancelled. It may have changed or you may no longer have access.')}finally{setCancelling(false)}}
+  async function deleteAttachment(attachmentId:string){if(attachmentBusy||!window.confirm('Delete this attachment?'))return;setAttachmentBusy(attachmentId);setActionError(undefined);try{await deleteTicketAttachmentAsync(id,attachmentId);setTicket({...currentTicket,attachments:currentTicket.attachments.filter(x=>x.id!==attachmentId)});refreshAudit()}catch{setActionError('The attachment could not be deleted.')}finally{setAttachmentBusy(undefined)}}
+  async function cancelTicket(e:FormEvent){e.preventDefault();if(!canCancel||cancelling||cancelReason.length>500)return;setCancelling(true);setActionError(undefined);try{setTicket(await cancelTicketAsync(id,{reason:cancelReason.trim()||null}));setShowCancel(false);setCancelReason('');refreshAudit()}catch{setActionError('The ticket could not be cancelled. It may have changed or you may no longer have access.')}finally{setCancelling(false)}}
   return (
     <section className="ticket-detail">
       <div className="page-heading">
@@ -327,7 +332,7 @@ function Detail({ id }: { id: string }) {
           </ul>
         )}
       </section>
-      <AuditTrail ticketId={ticket.id}/>
+      <AuditTrail key={`${ticket.id}-${auditVersion}`} ticketId={ticket.id}/>
     </section>
   );
 }

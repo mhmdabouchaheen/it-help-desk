@@ -137,6 +137,31 @@ public sealed class TicketServiceTests
     }
 
     [Fact]
+    public async Task List_DefaultsToNewestUpdatedWithStablePaginationAndIdTieBreaker()
+    {
+        await using var fixture=await Fixture.CreateAsync();
+        var(owner,other)=await fixture.AddTicketsAsync();
+        owner.UpdatedAtUtc=fixture.Now.UtcDateTime;other.UpdatedAtUtc=fixture.Now.UtcDateTime.AddMinutes(-1);
+        await fixture.Db.SaveChangesAsync();
+        var newest=await fixture.Service.GetPagedAsync(new(){PageSize=1},fixture.Access(fixture.OwnerId,AppRoles.Admin));
+        Assert.Equal(owner.Id,Assert.Single(newest.Items).Id);Assert.True(newest.HasNextPage);
+        owner.UpdatedAtUtc=other.UpdatedAtUtc=fixture.Now.UtcDateTime;await fixture.Db.SaveChangesAsync();
+        var first=await fixture.Service.GetPagedAsync(new(){PageSize=1},fixture.Access(fixture.OwnerId,AppRoles.Admin));
+        var second=await fixture.Service.GetPagedAsync(new(){PageNumber=2,PageSize=1},fixture.Access(fixture.OwnerId,AppRoles.Admin));
+        Assert.Equal(new[]{owner.Id,other.Id}.Order(),new[]{Assert.Single(first.Items).Id,Assert.Single(second.Items).Id});
+        Assert.True(first.HasNextPage);Assert.True(second.HasPreviousPage);Assert.False(second.HasNextPage);
+    }
+
+    [Fact]
+    public async Task List_ExplicitCreatedAtSortingStillOverridesDefault()
+    {
+        await using var fixture=await Fixture.CreateAsync();var(owner,other)=await fixture.AddTicketsAsync();
+        owner.UpdatedAtUtc=fixture.Now.UtcDateTime.AddHours(1);await fixture.Db.SaveChangesAsync();
+        var result=await fixture.Service.GetPagedAsync(new(){SortBy=TicketSortFields.CreatedAtUtc,SortDirection=SortDirections.Descending},fixture.Access(fixture.OwnerId,AppRoles.Admin));
+        Assert.Equal(new[]{other.Id,owner.Id},result.Items.Select(x=>x.Id));
+    }
+
+    [Fact]
     public async Task List_OwnershipCannotBeEscapedByCreatorFilter()
     {
         await using var fixture = await Fixture.CreateAsync();

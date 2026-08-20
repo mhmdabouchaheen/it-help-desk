@@ -50,7 +50,7 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
         NotificationService = new Mock<INotificationService>();
         ActivityLogService = new Mock<IActivityLogService>();
         ActivityLogService.Setup(x=>x.GetPagedAsync(It.IsAny<ActivityLogListRequest>(),It.IsAny<CancellationToken>())).ReturnsAsync(new PagedResponse<ActivityLogResponse>{PageNumber=1,PageSize=20});
-        ActivityLogService.Setup(x=>x.GetForTicketAsync(It.IsAny<Guid>(),It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        ActivityLogService.Setup(x=>x.GetForTicketAsync(It.IsAny<Guid>(),It.IsAny<PagedRequest>(),It.IsAny<CancellationToken>())).ReturnsAsync(new PagedResponse<ActivityLogResponse>{PageNumber=1,PageSize=20});
         NotificationService.Setup(x=>x.GetPagedAsync(It.IsAny<Guid>(),It.IsAny<NotificationListRequest>(),It.IsAny<CancellationToken>())).ReturnsAsync(new PagedResponse<NotificationResponse>{PageNumber=1,PageSize=20});
         NotificationService.Setup(x=>x.GetUnreadCountAsync(It.IsAny<Guid>(),It.IsAny<CancellationToken>())).ReturnsAsync(new NotificationUnreadCountResponse());
         DashboardService.Setup(x => x.GetDashboardAsync(It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))

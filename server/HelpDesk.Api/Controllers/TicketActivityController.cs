@@ -2,6 +2,7 @@ using HelpDesk.Api.Application.Audit;
 using HelpDesk.Api.Application.Authorization;
 using HelpDesk.Api.Application.Tickets;
 using HelpDesk.Api.Contracts.Audit;
+using HelpDesk.Api.Contracts.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,9 +15,11 @@ public sealed class TicketActivityController(ITicketService tickets,IActivityLog
     ITicketAccessContextFactory accessFactory):ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<ActivityLogResponse>>> GetAsync(Guid ticketId,CancellationToken token)
+    [ProducesResponseType(typeof(PagedResponse<ActivityLogResponse>),StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResponse<ActivityLogResponse>>> GetAsync(
+        Guid ticketId,[FromQuery] PagedRequest request,CancellationToken token)
     {
         await tickets.GetByIdAsync(ticketId,accessFactory.Create(User),token);
-        return Ok(await activityLogs.GetForTicketAsync(ticketId,token));
+        return Ok(await activityLogs.GetForTicketAsync(ticketId,request,token));
     }
 }

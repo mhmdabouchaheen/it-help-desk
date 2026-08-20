@@ -10,6 +10,6 @@ public interface IActivityLogService
         IReadOnlyDictionary<string, string?>? metadata = null, CancellationToken cancellationToken = default);
     Task<PagedResponse<ActivityLogResponse>> GetPagedAsync(ActivityLogListRequest request,
         CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<ActivityLogResponse>> GetForTicketAsync(Guid ticketId,
+    Task<PagedResponse<ActivityLogResponse>> GetForTicketAsync(Guid ticketId, PagedRequest request,
         CancellationToken cancellationToken = default);
 }

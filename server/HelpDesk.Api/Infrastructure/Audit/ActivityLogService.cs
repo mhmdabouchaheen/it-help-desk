@@ -67,17 +67,25 @@ public sealed class ActivityLogService(ApplicationDbContext db, TimeProvider tim
             HasPreviousPage=request.PageNumber>1&&pages>0,HasNextPage=request.PageNumber<pages};
     }
 
-    public async Task<IReadOnlyList<ActivityLogResponse>> GetForTicketAsync(Guid ticketId,
+    public async Task<PagedResponse<ActivityLogResponse>> GetForTicketAsync(Guid ticketId,PagedRequest request,
         CancellationToken cancellationToken = default)
     {
-        if(ticketId==Guid.Empty)throw new ActivityLogValidationException();var id=ticketId.ToString();
-        var rows=await (from activity in db.ActivityLogs.AsNoTracking()
-            where activity.EntityType==ActivityEntityTypes.Ticket&&activity.EntityIdentifier==id
+        ArgumentNullException.ThrowIfNull(request);
+        if(ticketId==Guid.Empty||request.PageNumber<1||request.PageSize is <1 or >100)throw new ActivityLogValidationException();
+        var id=ticketId.ToString();
+        var query=db.ActivityLogs.AsNoTracking().Where(activity=>
+            activity.EntityType==ActivityEntityTypes.Ticket&&activity.EntityIdentifier==id);
+        var total=await query.CountAsync(cancellationToken);
+        var rows=await (from activity in query
             orderby activity.OccurredAtUtc descending,activity.Id descending
             join user in db.Users.AsNoTracking() on activity.ActorUserId equals (Guid?)user.Id into actors
             from actor in actors.DefaultIfEmpty()
-            select new {Activity=activity,ActorDisplayName=actor==null?null:actor.DisplayName}).ToListAsync(cancellationToken);
-        return rows.Select(x=>Map(x.Activity,x.ActorDisplayName)).ToList();
+            select new {Activity=activity,ActorDisplayName=actor==null?null:actor.DisplayName})
+            .Skip(checked((request.PageNumber-1)*request.PageSize)).Take(request.PageSize).ToListAsync(cancellationToken);
+        var pages=total==0?0:(int)Math.Ceiling(total/(double)request.PageSize);
+        return new PagedResponse<ActivityLogResponse>{Items=rows.Select(x=>Map(x.Activity,x.ActorDisplayName)).ToList(),
+            PageNumber=request.PageNumber,PageSize=request.PageSize,TotalCount=total,TotalPages=pages,
+            HasPreviousPage=request.PageNumber>1&&pages>0,HasNextPage=request.PageNumber<pages};
     }
 
     private static string Validate(string? value,int max){var result=value?.Trim();if(string.IsNullOrWhiteSpace(result)||result.Length>max)throw new ActivityLogValidationException();return result;}

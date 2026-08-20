@@ -28,7 +28,7 @@ public sealed class TicketListRequest : PagedRequest
     [Common.Validation.AllowedValues(TicketSortFields.CreatedAtUtc, TicketSortFields.UpdatedAtUtc,
         TicketSortFields.TicketNumber, TicketSortFields.Priority, TicketSortFields.Status,
         TicketSortFields.Title)]
-    public string SortBy { get; init; } = TicketSortFields.CreatedAtUtc;
+    public string SortBy { get; init; } = TicketSortFields.UpdatedAtUtc;
     /// <summary>Gets the sort direction.</summary>
     [Common.Validation.AllowedValues(SortDirections.Ascending, SortDirections.Descending)]
     public string SortDirection { get; init; } = SortDirections.Descending;
