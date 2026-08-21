@@ -62,8 +62,8 @@ export function TicketListPage() {
           Create ticket
         </Link>
       </div>
-      <form className="filters" onSubmit={searchSubmit}>
-        <label>
+      <form className="filters ticket-filters" onSubmit={searchSubmit}>
+        <label className="ticket-filter-search">
           Search
           <input value={search} onChange={(e) => setSearch(e.target.value)} />
         </label>
@@ -112,7 +112,7 @@ export function TicketListPage() {
             ))}
           </select>
         </label>
-        <label>
+        <label className="ticket-filter-date">
           Created from
           <input
             type="datetime-local"
@@ -125,7 +125,7 @@ export function TicketListPage() {
             }
           />
         </label>
-        <label>
+        <label className="ticket-filter-date">
           Created to
           <input
             type="datetime-local"
@@ -159,7 +159,7 @@ export function TicketListPage() {
             <option value="asc">Ascending</option>
           </select>
         </label>
-        <label>
+        <label className="ticket-filter-page-size">
           Page size
           <select
             value={request.pageSize}
