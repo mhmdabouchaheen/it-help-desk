@@ -72,6 +72,7 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
         InvalidPasswordResetException => new(400, "Password reset failed", exception.Message, "invalid_password_reset"),
         ProfileValidationException => new(400, "Profile validation failed", exception.Message, "profile_validation_failed"),
         TeamManagementValidationException => new(400, "Team assignment failed", exception.Message, "team_assignment_failed"),
+        RoleManagementValidationException => new(400, "Role change failed", exception.Message, "role_management_failed"),
         UserRegistrationException => new(400, "Registration failed", exception.Message, "registration_failed"),
         AuthenticationTokenIssuanceException => new(500, "Authentication service unavailable", "Authentication credentials could not be issued.", "token_issuance_failed", true),
         InvalidAuthenticatedPrincipalException => new(401, "Invalid authenticated principal", exception.Message, "invalid_authenticated_principal"),

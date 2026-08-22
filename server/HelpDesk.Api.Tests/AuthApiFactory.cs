@@ -91,10 +91,13 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
         TicketLookupService = new Mock<ITicketLookupService>();
         SupportUserDirectoryService = new Mock<ISupportUserDirectoryService>();
         UserTeamManagementService = new Mock<IUserTeamManagementService>();
+        UserRoleManagementService = new Mock<IUserRoleManagementService>();
         SupportUserDirectoryService.Setup(x => x.GetEligibleSupportUsersAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync([new SupportUserResponse { Id = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), DisplayName = "Support User", Roles = ["IT Support Agent"] }]);
         UserTeamManagementService.Setup(x=>x.GetUsersAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
         UserTeamManagementService.Setup(x=>x.UpdateManagerAsync(It.IsAny<Guid>(),It.IsAny<UpdateUserManagerRequest>(),It.IsAny<CancellationToken>())).ReturnsAsync(new TeamMemberResponse());
+        UserRoleManagementService.Setup(x=>x.GetUsersAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        UserRoleManagementService.Setup(x=>x.UpdateRolesAsync(It.IsAny<Guid>(),It.IsAny<UpdateUserRolesRequest>(),It.IsAny<Guid>(),It.IsAny<string?>(),It.IsAny<CancellationToken>())).ReturnsAsync(new RoleManagedUserResponse());
         TicketService.Setup(x => x.CreateAsync(It.IsAny<CreateTicketRequest>(), It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TicketDetail());
         TicketService.Setup(x => x.GetPagedAsync(It.IsAny<TicketListRequest>(), It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
@@ -132,6 +135,7 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
     public Mock<IActivityLogService> ActivityLogService { get; }
     public Mock<ISupportUserDirectoryService> SupportUserDirectoryService { get; }
     public Mock<IUserTeamManagementService> UserTeamManagementService { get; }
+    public Mock<IUserRoleManagementService> UserRoleManagementService { get; }
     public static Guid TicketId { get; } = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
     public static Guid CommentId { get; } = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
 
@@ -197,6 +201,7 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<ITicketLookupService>();
             services.RemoveAll<ISupportUserDirectoryService>();
             services.RemoveAll<IUserTeamManagementService>();
+            services.RemoveAll<IUserRoleManagementService>();
             services.AddSingleton(TicketService.Object);
             services.AddSingleton(DashboardService.Object);
             services.AddSingleton(ReportService.Object);
@@ -207,6 +212,7 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
             services.AddSingleton(TicketLookupService.Object);
             services.AddSingleton(SupportUserDirectoryService.Object);
             services.AddSingleton(UserTeamManagementService.Object);
+            services.AddSingleton(UserRoleManagementService.Object);
         });
     }
 

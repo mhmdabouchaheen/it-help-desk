@@ -6,6 +6,7 @@ public static class ActivityActions
     public const string UserRegistered = "user.registered";
     public const string UserLoggedIn = "user.logged_in";
     public const string UserLoggedOut = "user.logged_out";
+    public const string UserRolesChanged = "user.roles_changed";
     public const string TicketCreated = "ticket.created";
     public const string TicketUpdated = "ticket.updated";
     public const string TicketCancelled = "ticket.cancelled";

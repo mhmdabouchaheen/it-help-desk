@@ -30,6 +30,7 @@ public sealed class ActivityLogService(ApplicationDbContext db, TimeProvider tim
             [ActivityActions.UserRegistered] = Keys("userId"),
             [ActivityActions.UserLoggedIn] = Keys("userId"),
             [ActivityActions.UserLoggedOut] = Keys("userId"),
+            [ActivityActions.UserRolesChanged] = Keys("previousRoles", "newRoles"),
             [ActivityActions.NotificationMarkedRead] = Keys("notificationId"),
             [ActivityActions.NotificationMarkedAllRead] = Keys("count")
         };

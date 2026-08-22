@@ -237,6 +237,7 @@ builder.Services.AddScoped<IAiTicketProvider, ConfiguredAiTicketProvider>();
 builder.Services.AddScoped<ITicketLookupService, TicketLookupService>();
 builder.Services.AddScoped<ISupportUserDirectoryService, SupportUserDirectoryService>();
 builder.Services.AddScoped<IUserTeamManagementService, UserTeamManagementService>();
+builder.Services.AddScoped<IUserRoleManagementService, UserRoleManagementService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddSingleton<INotificationRealtimePublisher, SignalRNotificationRealtimePublisher>();
 builder.Services.AddScoped<ITicketNotificationService, TicketNotificationService>();
