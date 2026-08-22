@@ -7,6 +7,7 @@ using HelpDesk.Api.Contracts.Common;
 using HelpDesk.Api.Contracts.Tickets;
 using HelpDesk.Api.Data;
 using HelpDesk.Api.Entities;
+using HelpDesk.Api.Infrastructure.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -96,12 +97,11 @@ public sealed class TicketService(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var support = ValidateAccess(accessContext);
+        ValidateAccess(accessContext);
         ValidateListRequest(request);
 
-        IQueryable<Ticket> query = dbContext.Tickets.AsNoTracking();
-        if (!support)
-            query = query.Where(ticket => ticket.CreatedByUserId == accessContext.UserId);
+        IQueryable<Ticket> query = TicketReadScope.Apply(
+            dbContext.Tickets.AsNoTracking(), dbContext, accessContext);
 
         if (request.CategoryId.HasValue)
             query = query.Where(ticket => ticket.CategoryId == request.CategoryId);
@@ -168,11 +168,13 @@ public sealed class TicketService(
     {
         if (ticketId == Guid.Empty)
             throw new TicketValidationException();
-        var support = ValidateAccess(accessContext);
+        ValidateAccess(accessContext);
+        var support = TicketReadScope.IsSupportWide(accessContext);
 
-        var ticketQuery = dbContext.Tickets.AsNoTracking().Where(ticket => ticket.Id == ticketId);
-        if (!support)
-            ticketQuery = ticketQuery.Where(ticket => ticket.CreatedByUserId == accessContext.UserId);
+        var ticketQuery = TicketReadScope.Apply(
+            dbContext.Tickets.AsNoTracking().Where(ticket => ticket.Id == ticketId),
+            dbContext,
+            accessContext);
 
         var detail = await ProjectDetails(ticketQuery).SingleOrDefaultAsync(cancellationToken)
             ?? throw new TicketNotFoundException();

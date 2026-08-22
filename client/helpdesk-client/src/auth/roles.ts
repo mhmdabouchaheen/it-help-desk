@@ -4,4 +4,5 @@ export const AppRoles = {
 export const RoleGroups = {
   SupportStaff: [AppRoles.Admin, AppRoles.ItSupportAgent],
   Management: [AppRoles.Admin, AppRoles.Manager],
+  Reports: [AppRoles.Admin, AppRoles.ItSupportAgent, AppRoles.Manager],
 } as const

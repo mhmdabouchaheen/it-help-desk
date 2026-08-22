@@ -34,4 +34,10 @@ public class User : IdentityUser<Guid>
     /// Gets or sets the UTC date and time when the user was deactivated, or null if active.
     /// </summary>
     public DateTime? DeactivatedAtUtc { get; set; }
+
+    /// <summary>Gets or sets the active Manager responsible for this direct report.</summary>
+    public Guid? ManagerUserId { get; set; }
+
+    /// <summary>Gets or sets the Manager responsible for this direct report.</summary>
+    public User? ManagerUser { get; set; }
 }

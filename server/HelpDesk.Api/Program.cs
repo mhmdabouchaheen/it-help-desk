@@ -207,6 +207,8 @@ builder.Services.AddAuthorization(options =>
         policy.RequireAuthenticatedUser().RequireRole(AppRoles.Admin, AppRoles.ItSupportAgent));
     options.AddPolicy(AppPolicies.Management, policy =>
         policy.RequireAuthenticatedUser().RequireRole(AppRoles.Admin, AppRoles.Manager));
+    options.AddPolicy(AppPolicies.ManagementOrSupport, policy =>
+        policy.RequireAuthenticatedUser().RequireRole(AppRoles.Admin, AppRoles.ItSupportAgent, AppRoles.Manager));
 });
 builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
 builder.Services.AddSingleton<IAccessTokenService, JwtAccessTokenService>();
@@ -234,6 +236,7 @@ builder.Services.AddHttpClient<OllamaTicketProvider>((services, client) =>
 builder.Services.AddScoped<IAiTicketProvider, ConfiguredAiTicketProvider>();
 builder.Services.AddScoped<ITicketLookupService, TicketLookupService>();
 builder.Services.AddScoped<ISupportUserDirectoryService, SupportUserDirectoryService>();
+builder.Services.AddScoped<IUserTeamManagementService, UserTeamManagementService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddSingleton<INotificationRealtimePublisher, SignalRNotificationRealtimePublisher>();
 builder.Services.AddScoped<ITicketNotificationService, TicketNotificationService>();

@@ -16,6 +16,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             table.HasCheckConstraint(
                 "CK_Users_DisplayName_NotBlank",
                 "btrim(\"DisplayName\") <> ''");
+            table.HasCheckConstraint(
+                "CK_Users_Manager_NotSelf",
+                "\"ManagerUserId\" IS NULL OR \"ManagerUserId\" <> \"Id\"");
         });
         builder.Property(user => user.Id).ValueGeneratedOnAdd();
         builder.Property(user => user.Email).IsRequired().HasMaxLength(320);
@@ -25,8 +28,15 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(user => user.CreatedAtUtc).IsRequired().HasDefaultValueSql("CURRENT_TIMESTAMP");
         builder.Property(user => user.UpdatedAtUtc).IsRequired();
         builder.Property(user => user.DeactivatedAtUtc).IsRequired(false);
+        builder.Property(user => user.ManagerUserId).IsRequired(false);
+
+        builder.HasOne(user => user.ManagerUser)
+            .WithMany()
+            .HasForeignKey(user => user.ManagerUserId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(user => user.NormalizedEmail).IsUnique();
         builder.HasIndex(user => user.IsActive).HasFilter("\"IsActive\" = TRUE");
+        builder.HasIndex(user => user.ManagerUserId);
     }
 }

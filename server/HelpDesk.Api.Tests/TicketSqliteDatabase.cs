@@ -15,7 +15,8 @@ internal static class TicketSqliteDatabase
                 "TwoFactorEnabled" INTEGER NOT NULL DEFAULT 0, "LockoutEnd" TEXT,
                 "LockoutEnabled" INTEGER NOT NULL DEFAULT 0, "AccessFailedCount" INTEGER NOT NULL DEFAULT 0,
                 "DisplayName" TEXT NOT NULL, "IsActive" INTEGER NOT NULL DEFAULT 1,
-                "CreatedAtUtc" TEXT NOT NULL, "UpdatedAtUtc" TEXT NOT NULL, "DeactivatedAtUtc" TEXT
+                "CreatedAtUtc" TEXT NOT NULL, "UpdatedAtUtc" TEXT NOT NULL, "DeactivatedAtUtc" TEXT,
+                "ManagerUserId" TEXT
             );
             CREATE TABLE "Roles" (
                 "Id" TEXT PRIMARY KEY, "Name" TEXT, "NormalizedName" TEXT,

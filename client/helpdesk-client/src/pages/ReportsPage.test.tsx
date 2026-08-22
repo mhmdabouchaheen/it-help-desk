@@ -10,6 +10,7 @@ const { exportPdf, exportExcel, downloadBlob } = vi.hoisted(() => ({
   downloadBlob: vi.fn(),
 }));
 vi.mock("../auth/useReports", () => ({ useReports: () => report }));
+vi.mock("../auth/AuthProvider",()=>({useAuth:()=>({hasAnyRole:()=>true,roles:['Admin']})}));
 vi.mock("../api/reports", () => ({
   exportTicketReportPdfAsync: exportPdf,
   exportTicketReportExcelAsync: exportExcel,

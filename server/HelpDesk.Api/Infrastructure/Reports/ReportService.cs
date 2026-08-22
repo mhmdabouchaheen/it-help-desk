@@ -5,17 +5,19 @@ using HelpDesk.Api.Contracts.Reports;
 using HelpDesk.Api.Data;
 using HelpDesk.Api.Entities;
 using Microsoft.EntityFrameworkCore;
+using HelpDesk.Api.Application.Tickets;
+using HelpDesk.Api.Infrastructure.Authorization;
 
 namespace HelpDesk.Api.Infrastructure.Reports;
 
 public sealed class ReportService(ApplicationDbContext db, TimeProvider timeProvider) : IReportService
 {
-    public async Task<TicketReportResponse> GetTicketReportAsync(TicketReportRequest request, CancellationToken cancellationToken = default)
+    public async Task<TicketReportResponse> GetTicketReportAsync(TicketReportRequest request, TicketAccessContext accessContext, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         await ValidateLookupsAsync(request, cancellationToken);
 
-        IQueryable<Ticket> tickets = db.Tickets.AsNoTracking();
+        IQueryable<Ticket> tickets = TicketReadScope.Apply(db.Tickets.AsNoTracking(), db, accessContext);
         if (request.FromUtc.HasValue) tickets = tickets.Where(x => x.CreatedAtUtc >= request.FromUtc.Value);
         if (request.ToUtc.HasValue) tickets = tickets.Where(x => x.CreatedAtUtc <= request.ToUtc.Value);
         if (request.CategoryId.HasValue) tickets = tickets.Where(x => x.CategoryId == request.CategoryId.Value);
@@ -42,11 +44,17 @@ public sealed class ReportService(ApplicationDbContext db, TimeProvider timeProv
         var trend=Enumerable.Range(0,(to-from).Days+1).Select(offset=>from.AddDays(offset)).Select(day=>new TicketReportTrendResponse{PeriodStartUtc=DateTime.SpecifyKind(day,DateTimeKind.Utc),CreatedCount=createdDates.Count(x=>x.Date==day),ClosedCount=closedDates.Count(x=>x.Date==day)}).ToArray();
 
         var supportRoleNames=AppRoles.SupportStaff;
-        var agents=await (from user in db.Users.AsNoTracking()
+        var agentsQuery=from user in db.Users.AsNoTracking()
             join userRole in db.UserRoles.AsNoTracking() on user.Id equals userRole.UserId
             join role in db.Roles.AsNoTracking() on userRole.RoleId equals role.Id
             where user.IsActive && supportRoleNames.Contains(role.Name!)
-            select new {user.Id,user.DisplayName}).Distinct().OrderBy(x=>x.DisplayName).ToListAsync(cancellationToken);
+            select new {user.Id,user.DisplayName};
+        if (!TicketReadScope.IsSupportWide(accessContext))
+        {
+            var scopedAssigneeIds = tickets.Where(x => x.AssignedToUserId != null).Select(x => x.AssignedToUserId!.Value);
+            agentsQuery = agentsQuery.Where(agent => scopedAssigneeIds.Contains(agent.Id));
+        }
+        var agents=await agentsQuery.Distinct().OrderBy(x=>x.DisplayName).ToListAsync(cancellationToken);
         var activeCounts=await tickets.Where(x=>x.AssignedToUserId!=null&&!terminalIds.Contains(x.StatusId)).GroupBy(x=>x.AssignedToUserId!.Value).Select(x=>new{Id=x.Key,Count=x.Count()}).ToDictionaryAsync(x=>x.Id,x=>x.Count,cancellationToken);
 
         static TicketReportBreakdownResponse Item(short id,string name,IReadOnlyDictionary<short,int> counts)=>new(){Id=id,Name=name,Count=counts.GetValueOrDefault(id)};

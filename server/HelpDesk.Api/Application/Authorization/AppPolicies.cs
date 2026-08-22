@@ -16,4 +16,7 @@ public static class AppPolicies
 
     /// <summary>The policy for administrators and managers.</summary>
     public const string Management = "Management";
+
+    /// <summary>The policy for managers and organization-wide support roles.</summary>
+    public const string ManagementOrSupport = "ManagementOrSupport";
 }

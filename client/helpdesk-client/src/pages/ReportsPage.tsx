@@ -22,6 +22,8 @@ import {
   exportTicketReportPdfAsync,
 } from "../api/reports";
 import { downloadBlob } from "../utils/download";
+import { useAuth } from "../auth/AuthProvider";
+import { RoleGroups } from "../auth/roles";
 
 const date = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -32,8 +34,10 @@ function utc(value: string, end = false) {
   return value ? `${value}T${end ? "23:59:59" : "00:00:00"}Z` : undefined;
 }
 export function ReportsPage() {
+  const auth = useAuth();
+  const supportWide = auth.hasAnyRole(RoleGroups.SupportStaff);
   const lookups = useLookups();
-  const agents = useSupportUsers(true);
+  const agents = useSupportUsers(supportWide);
   const [draft, setDraft] = useState({
     from: "",
     to: "",
@@ -90,8 +94,9 @@ export function ReportsPage() {
         <div>
           <h1 id="reports-heading">Reports</h1>
           <p>
-            Analyze ticket volume, workflow distribution, trends, and current
-            support workload.
+            {supportWide
+              ? "Analyze organization-wide ticket volume, trends, and support workload."
+              : "Analyze ticket activity for your team."}
           </p>
         </div>
         <div className="actions report-export-actions">
@@ -183,7 +188,7 @@ export function ReportsPage() {
             ))}
           </select>
         </label>
-        <label>
+        {supportWide && <label>
           Agent
           <select
             value={draft.assignedToUserId}
@@ -198,7 +203,7 @@ export function ReportsPage() {
               </option>
             ))}
           </select>
-        </label>
+        </label>}
         <div className="actions">
           <button type="submit">Apply filters</button>
           <button type="button" onClick={reset}>

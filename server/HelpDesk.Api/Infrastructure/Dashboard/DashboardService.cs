@@ -6,6 +6,7 @@ using HelpDesk.Api.Contracts.Dashboard;
 using HelpDesk.Api.Data;
 using HelpDesk.Api.Entities;
 using Microsoft.EntityFrameworkCore;
+using HelpDesk.Api.Infrastructure.Authorization;
 
 namespace HelpDesk.Api.Infrastructure.Dashboard;
 
@@ -18,9 +19,8 @@ public sealed class DashboardService(ApplicationDbContext db, TimeProvider timeP
     public async Task<DashboardResponse> GetDashboardAsync(TicketAccessContext accessContext,
         CancellationToken cancellationToken = default)
     {
-        var support = Validate(accessContext);
-        IQueryable<Ticket> tickets = db.Tickets.AsNoTracking();
-        if (!support) tickets = tickets.Where(x => x.CreatedByUserId == accessContext.UserId);
+        Validate(accessContext);
+        IQueryable<Ticket> tickets = TicketReadScope.Apply(db.Tickets.AsNoTracking(), db, accessContext);
 
         var now = timeProvider.GetUtcNow().UtcDateTime;
         var month = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);

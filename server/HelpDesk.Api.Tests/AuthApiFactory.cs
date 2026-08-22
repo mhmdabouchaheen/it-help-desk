@@ -55,9 +55,9 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
         NotificationService.Setup(x=>x.GetUnreadCountAsync(It.IsAny<Guid>(),It.IsAny<CancellationToken>())).ReturnsAsync(new NotificationUnreadCountResponse());
         DashboardService.Setup(x => x.GetDashboardAsync(It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new DashboardResponse());
-        ReportService.Setup(x => x.GetTicketReportAsync(It.IsAny<TicketReportRequest>(), It.IsAny<CancellationToken>())).ReturnsAsync(new TicketReportResponse());
-        ReportExportService.Setup(x=>x.ExportTicketReportPdfAsync(It.IsAny<TicketReportRequest>(),It.IsAny<CancellationToken>())).ReturnsAsync(new ReportExportResult([1,2,3],"application/pdf","ticket-report-20260817-120000.pdf"));
-        ReportExportService.Setup(x=>x.ExportTicketReportExcelAsync(It.IsAny<TicketReportRequest>(),It.IsAny<CancellationToken>())).ReturnsAsync(new ReportExportResult([1,2,3],"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","ticket-report-20260817-120000.xlsx"));
+        ReportService.Setup(x => x.GetTicketReportAsync(It.IsAny<TicketReportRequest>(), It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>())).ReturnsAsync(new TicketReportResponse());
+        ReportExportService.Setup(x=>x.ExportTicketReportPdfAsync(It.IsAny<TicketReportRequest>(),It.IsAny<TicketAccessContext>(),It.IsAny<CancellationToken>())).ReturnsAsync(new ReportExportResult([1,2,3],"application/pdf","ticket-report-20260817-120000.pdf"));
+        ReportExportService.Setup(x=>x.ExportTicketReportExcelAsync(It.IsAny<TicketReportRequest>(),It.IsAny<TicketAccessContext>(),It.IsAny<CancellationToken>())).ReturnsAsync(new ReportExportResult([1,2,3],"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","ticket-report-20260817-120000.xlsx"));
         AiTicketAnalysisService.Setup(x=>x.AnalyzeTicketAsync(It.IsAny<Guid>(),It.IsAny<TicketAccessContext>(),It.IsAny<CancellationToken>())).ReturnsAsync(new AiTicketAnalysisResponse{Summary="Safe summary"});
         AuthenticationService.Setup(service => service.RegisterAsync(
                 It.IsAny<RegisterRequest>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
@@ -90,8 +90,11 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
         TicketService = new Mock<ITicketService>();
         TicketLookupService = new Mock<ITicketLookupService>();
         SupportUserDirectoryService = new Mock<ISupportUserDirectoryService>();
+        UserTeamManagementService = new Mock<IUserTeamManagementService>();
         SupportUserDirectoryService.Setup(x => x.GetEligibleSupportUsersAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync([new SupportUserResponse { Id = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), DisplayName = "Support User", Roles = ["IT Support Agent"] }]);
+        UserTeamManagementService.Setup(x=>x.GetUsersAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        UserTeamManagementService.Setup(x=>x.UpdateManagerAsync(It.IsAny<Guid>(),It.IsAny<UpdateUserManagerRequest>(),It.IsAny<CancellationToken>())).ReturnsAsync(new TeamMemberResponse());
         TicketService.Setup(x => x.CreateAsync(It.IsAny<CreateTicketRequest>(), It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(TicketDetail());
         TicketService.Setup(x => x.GetPagedAsync(It.IsAny<TicketListRequest>(), It.IsAny<TicketAccessContext>(), It.IsAny<CancellationToken>()))
@@ -128,6 +131,7 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
     public Mock<INotificationService> NotificationService { get; }
     public Mock<IActivityLogService> ActivityLogService { get; }
     public Mock<ISupportUserDirectoryService> SupportUserDirectoryService { get; }
+    public Mock<IUserTeamManagementService> UserTeamManagementService { get; }
     public static Guid TicketId { get; } = Guid.Parse("dddddddd-dddd-dddd-dddd-dddddddddddd");
     public static Guid CommentId { get; } = Guid.Parse("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee");
 
@@ -192,6 +196,7 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
             services.RemoveAll<IActivityLogService>();
             services.RemoveAll<ITicketLookupService>();
             services.RemoveAll<ISupportUserDirectoryService>();
+            services.RemoveAll<IUserTeamManagementService>();
             services.AddSingleton(TicketService.Object);
             services.AddSingleton(DashboardService.Object);
             services.AddSingleton(ReportService.Object);
@@ -201,6 +206,7 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
             services.AddSingleton(ActivityLogService.Object);
             services.AddSingleton(TicketLookupService.Object);
             services.AddSingleton(SupportUserDirectoryService.Object);
+            services.AddSingleton(UserTeamManagementService.Object);
         });
     }
 
