@@ -35,6 +35,38 @@ public sealed class SmtpPasswordResetEmailSender(
                 : new NetworkCredential(value.Username, value.Password)
         };
         cancellationToken.ThrowIfCancellationRequested();
-        await client.SendMailAsync(message, cancellationToken);
+        try
+        {
+            await client.SendMailAsync(message, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(
+                "Password-reset SMTP delivery failed. ExceptionType: {ExceptionType}. Message: {ExceptionMessage}. SMTP status: {SmtpStatus}. Host: {SmtpHost}. Port: {SmtpPort}. UseSsl: {UseSsl}. FromAddress: {FromAddress}.",
+                exception.GetType().Name,
+                SanitizeMessage(exception.Message, email, token, value.Username, value.Password),
+                exception is SmtpException smtpException ? smtpException.StatusCode.ToString() : "Unavailable",
+                value.Host,
+                value.Port,
+                value.UseSsl,
+                value.FromAddress);
+            throw;
+        }
+    }
+
+    private static string SanitizeMessage(string message, params string[] sensitiveValues)
+    {
+        var sanitized = message;
+        foreach (var sensitiveValue in sensitiveValues.Where(value => !string.IsNullOrEmpty(value)))
+        {
+            sanitized = sanitized.Replace(sensitiveValue, "[REDACTED]", StringComparison.Ordinal);
+        }
+
+        sanitized = string.Concat(sanitized.Select(character => char.IsControl(character) ? ' ' : character));
+        return sanitized.Length <= 512 ? sanitized : sanitized[..512];
     }
 }

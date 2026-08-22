@@ -6,6 +6,7 @@ using HelpDesk.Api.Infrastructure.Auth;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
 using Moq;
+using System.Net.Mail;
 
 namespace HelpDesk.Api.Tests;
 
@@ -339,6 +340,27 @@ public class AuthenticationServiceTests
         fixture.UserManager.Setup(x => x.GeneratePasswordResetTokenAsync(user)).ReturnsAsync("identity-token");
         await fixture.Service.ForgotPasswordAsync(new ForgotPasswordRequest { Email = user.Email! });
         fixture.PasswordResetEmails.Verify(x => x.SendPasswordResetAsync(user.Email!, "identity-token", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ForgotPassword_SwallowsSmtpFailureWithoutLoggingSensitiveValues()
+    {
+        var fixture = new Fixture();
+        var user = User();
+        const string resetToken = "reset-token-that-must-not-be-logged";
+        const string smtpPassword = "smtp-password-that-must-not-be-logged";
+        fixture.UseLoginUser(user);
+        fixture.UserManager.Setup(x => x.GeneratePasswordResetTokenAsync(user)).ReturnsAsync(resetToken);
+        fixture.PasswordResetEmails
+            .Setup(x => x.SendPasswordResetAsync(user.Email!, resetToken, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new SmtpException($"SMTP failed for {resetToken} using {smtpPassword}"));
+
+        await fixture.Service.ForgotPasswordAsync(new ForgotPasswordRequest { Email = user.Email! });
+
+        var loggedText = string.Join(Environment.NewLine, fixture.Logger.Invocations.Select(invocation => invocation.Arguments[2]?.ToString()));
+        Assert.Contains("Password-reset email delivery failed", loggedText, StringComparison.Ordinal);
+        Assert.DoesNotContain(resetToken, loggedText, StringComparison.Ordinal);
+        Assert.DoesNotContain(smtpPassword, loggedText, StringComparison.Ordinal);
     }
 
     [Fact]
