@@ -14,12 +14,15 @@ namespace HelpDesk.Api.Infrastructure.Auth;
 public sealed class AuthenticationService : IAuthenticationService
 {
     private const string LogoutReason = "User logout";
+    private const string PasswordResetReason = "Password reset";
+    private const string PasswordChangeReason = "Password changed";
 
     private readonly UserManager<User> _userManager;
     private readonly IAccessTokenService _accessTokenService;
     private readonly IRefreshTokenService _refreshTokenService;
     private readonly ILogger<AuthenticationService> _logger;
     private readonly IActivityLogService? _activityLogs;
+    private readonly IPasswordResetEmailSender? _passwordResetEmailSender;
 
     /// <summary>Initializes a new authentication application service.</summary>
     public AuthenticationService(
@@ -27,13 +30,15 @@ public sealed class AuthenticationService : IAuthenticationService
         IAccessTokenService accessTokenService,
         IRefreshTokenService refreshTokenService,
         ILogger<AuthenticationService> logger,
-        IActivityLogService? activityLogs = null)
+        IActivityLogService? activityLogs = null,
+        IPasswordResetEmailSender? passwordResetEmailSender = null)
     {
         _userManager = userManager;
         _accessTokenService = accessTokenService;
         _refreshTokenService = refreshTokenService;
         _logger = logger;
         _activityLogs = activityLogs;
+        _passwordResetEmailSender = passwordResetEmailSender;
     }
 
     /// <inheritdoc />
@@ -238,6 +243,79 @@ public sealed class AuthenticationService : IAuthenticationService
             Roles = [.. roles],
             IsActive = user.IsActive
         };
+    }
+
+    public async Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        cancellationToken.ThrowIfCancellationRequested();
+        var user = await _userManager.FindByEmailAsync(request.Email.Trim());
+        if (user is null || !user.IsActive || _passwordResetEmailSender is null) return;
+
+        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+        try
+        {
+            await _passwordResetEmailSender.SendPasswordResetAsync(user.Email ?? request.Email.Trim(), token, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception)
+        {
+            _logger.LogError("Password-reset email delivery failed for user {UserId}.", user.Id);
+        }
+    }
+
+    public async Task ResetPasswordAsync(ResetPasswordRequest request, string? ipAddress, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        cancellationToken.ThrowIfCancellationRequested();
+        var user = await _userManager.FindByEmailAsync(request.Email.Trim());
+        if (user is null || !user.IsActive) throw new InvalidPasswordResetException();
+
+        var result = await _userManager.ResetPasswordAsync(user, request.Token, request.NewPassword);
+        if (!result.Succeeded)
+        {
+            LogIdentityFailure("reset password", user.Id, result.Errors);
+            throw new InvalidPasswordResetException();
+        }
+
+        await _refreshTokenService.RevokeAllForUserAsync(user.Id, ipAddress, PasswordResetReason, cancellationToken);
+    }
+
+    public async Task<CurrentUserResponse> UpdateProfileAsync(Guid userId, UpdateProfileRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var user = await FindUserAsync(userId, cancellationToken);
+        var displayName = request.DisplayName.Trim();
+        if (displayName.Length == 0) throw new ProfileValidationException("Display name is required.");
+        user.DisplayName = displayName;
+        user.UpdatedAtUtc = DateTime.UtcNow;
+        var result = await _userManager.UpdateAsync(user);
+        if (!result.Succeeded)
+        {
+            LogIdentityFailure("update profile", user.Id, result.Errors);
+            throw new ProfileValidationException();
+        }
+        return await GetCurrentUserAsync(user.Id, cancellationToken);
+    }
+
+    public async Task ChangePasswordAsync(Guid userId, ChangePasswordRequest request, string? ipAddress, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var user = await FindUserAsync(userId, cancellationToken);
+        var result = await _userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
+        if (!result.Succeeded)
+        {
+            LogIdentityFailure("change password", user.Id, result.Errors);
+            throw new ProfileValidationException("The current password is incorrect or the new password is invalid.");
+        }
+        await _refreshTokenService.RevokeAllForUserAsync(user.Id, ipAddress, PasswordChangeReason, cancellationToken);
+    }
+
+    private async Task<User> FindUserAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        if (userId == Guid.Empty) throw new ArgumentException("A user identifier is required.", nameof(userId));
+        cancellationToken.ThrowIfCancellationRequested();
+        return await _userManager.FindByIdAsync(userId.ToString()) ?? throw new UserNotFoundException();
     }
 
     private async Task<AuthResponse> IssueCredentialsAsync(

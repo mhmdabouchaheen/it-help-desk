@@ -69,6 +69,8 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
         UserNotFoundException => new(404, "User not found", exception.Message, "user_not_found"),
         InvalidRefreshTokenException => new(401, "Invalid refresh token", exception.Message, "invalid_refresh_token"),
         RefreshTokenReuseDetectedException => new(401, "Refresh token rejected", exception.Message, "refresh_token_reuse_detected"),
+        InvalidPasswordResetException => new(400, "Password reset failed", exception.Message, "invalid_password_reset"),
+        ProfileValidationException => new(400, "Profile validation failed", exception.Message, "profile_validation_failed"),
         UserRegistrationException => new(400, "Registration failed", exception.Message, "registration_failed"),
         AuthenticationTokenIssuanceException => new(500, "Authentication service unavailable", "Authentication credentials could not be issued.", "token_issuance_failed", true),
         InvalidAuthenticatedPrincipalException => new(401, "Invalid authenticated principal", exception.Message, "invalid_authenticated_principal"),

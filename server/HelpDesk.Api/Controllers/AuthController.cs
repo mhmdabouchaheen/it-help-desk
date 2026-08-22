@@ -4,6 +4,7 @@ using HelpDesk.Api.Application.Auth;
 using HelpDesk.Api.Application.Common.Exceptions;
 using HelpDesk.Api.Contracts.Auth;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HelpDesk.Api.Controllers;
@@ -15,6 +16,28 @@ namespace HelpDesk.Api.Controllers;
 [Route("api/auth")]
 public sealed class AuthController(IAuthenticationService authenticationService) : ControllerBase
 {
+    private const string ForgotPasswordMessage = "If an account exists for that email, password reset instructions have been sent.";
+
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    [EnableRateLimiting("PasswordReset")]
+    public async Task<ActionResult<MessageResponse>> ForgotPasswordAsync(
+        [FromBody] ForgotPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        await authenticationService.ForgotPasswordAsync(request, cancellationToken);
+        return Ok(new MessageResponse { Message = ForgotPasswordMessage });
+    }
+
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<ActionResult<MessageResponse>> ResetPasswordAsync(
+        [FromBody] ResetPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        await authenticationService.ResetPasswordAsync(request, GetClientIpAddress(), cancellationToken);
+        return Ok(new MessageResponse { Message = "Your password has been reset." });
+    }
     /// <summary>Registers an application user and returns their authentication credentials.</summary>
     [HttpPost("register")]
     [AllowAnonymous]

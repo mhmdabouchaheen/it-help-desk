@@ -33,6 +33,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 ReportPdfFontConfiguration.Configure();
@@ -104,6 +106,18 @@ builder.Services
         };
     });
 builder.Services.AddDataProtection();
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options => options.TokenLifespan = TimeSpan.FromHours(1));
+builder.Services.Configure<PasswordResetEmailOptions>(builder.Configuration.GetSection(PasswordResetEmailOptions.SectionName));
+builder.Services.AddScoped<IPasswordResetEmailSender, SmtpPasswordResetEmailSender>();
+builder.Services.AddRateLimiter(options => options.AddPolicy("PasswordReset", context =>
+    RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 5,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        })));
 builder.Services
     .AddOptions<JwtOptions>()
     .Bind(builder.Configuration.GetSection("Jwt"))
@@ -263,6 +277,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

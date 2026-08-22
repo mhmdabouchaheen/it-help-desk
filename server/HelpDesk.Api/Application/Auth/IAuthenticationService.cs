@@ -21,4 +21,12 @@ public interface IAuthenticationService
 
     /// <summary>Gets safe application identity details for a user.</summary>
     Task<CurrentUserResponse> GetCurrentUserAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken cancellationToken = default);
+
+    Task ResetPasswordAsync(ResetPasswordRequest request, string? ipAddress, CancellationToken cancellationToken = default);
+
+    Task<CurrentUserResponse> UpdateProfileAsync(Guid userId, UpdateProfileRequest request, CancellationToken cancellationToken = default);
+
+    Task ChangePasswordAsync(Guid userId, ChangePasswordRequest request, string? ipAddress, CancellationToken cancellationToken = default);
 }

@@ -22,7 +22,7 @@ export function LoginPage() {
   }
   return <AuthCard title="Sign in"><form onSubmit={submit} noValidate><ErrorSummary {...problem} />
     <label htmlFor="email">Email</label><input id="email" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} aria-invalid={!!errors.email} aria-describedby={errors.email ? 'email-error' : undefined}/><FieldError id="email-error" message={errors.email}/>
-    <label htmlFor="password">Password</label><input id="password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} aria-invalid={!!errors.password} aria-describedby={errors.password ? 'password-error' : undefined}/><FieldError id="password-error" message={errors.password}/>
+    <label htmlFor="password">Password</label><input id="password" type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} aria-invalid={!!errors.password} aria-describedby={errors.password ? 'password-error' : undefined}/><FieldError id="password-error" message={errors.password}/><Link className="auth-help-link" to="/forgot-password">Forgot password?</Link>
     <button disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button></form><p>New here? <Link to="/register">Create an account</Link></p></AuthCard>
 }
 function AuthCard({ title, children }: { title: string; children: React.ReactNode }) { return <main className="auth-page auth-background"><section className="auth-card"><h1>{title}</h1>{children}</section></main> }

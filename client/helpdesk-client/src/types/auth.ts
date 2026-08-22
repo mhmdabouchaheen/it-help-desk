@@ -19,6 +19,11 @@ export interface CurrentUserResponse {
   roles: string[]
   isActive: boolean
 }
+export interface ForgotPasswordRequest { email: string }
+export interface ResetPasswordRequest { email: string; token: string; newPassword: string; confirmPassword: string }
+export interface UpdateProfileRequest { displayName: string }
+export interface ChangePasswordRequest { currentPassword: string; newPassword: string; confirmPassword: string }
+export interface MessageResponse { message: string }
 export interface ProblemDetails {
   status?: number
   title?: string

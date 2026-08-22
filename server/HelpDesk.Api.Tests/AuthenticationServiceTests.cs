@@ -332,6 +332,53 @@ public class AuthenticationServiceTests
         Assert.DoesNotContain(refreshToken, loggedText, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ForgotPassword_UsesIdentityTokenAndEmailSenderOnlyForActiveUser()
+    {
+        var fixture = new Fixture(); var user = User(); fixture.UseLoginUser(user);
+        fixture.UserManager.Setup(x => x.GeneratePasswordResetTokenAsync(user)).ReturnsAsync("identity-token");
+        await fixture.Service.ForgotPasswordAsync(new ForgotPasswordRequest { Email = user.Email! });
+        fixture.PasswordResetEmails.Verify(x => x.SendPasswordResetAsync(user.Email!, "identity-token", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ForgotPassword_DoesNothingForMissingOrInactiveUser()
+    {
+        var fixture = new Fixture();
+        await fixture.Service.ForgotPasswordAsync(new ForgotPasswordRequest { Email = "missing@example.test" });
+        fixture.UseLoginUser(User(false));
+        await fixture.Service.ForgotPasswordAsync(new ForgotPasswordRequest { Email = "inactive@example.test" });
+        fixture.UserManager.Verify(x => x.GeneratePasswordResetTokenAsync(It.IsAny<User>()), Times.Never);
+        fixture.PasswordResetEmails.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task ResetPassword_DelegatesValidationToIdentityAndRevokesRefreshTokens()
+    {
+        var fixture = new Fixture(); var user = User(); fixture.UseLoginUser(user);
+        fixture.UserManager.Setup(x => x.ResetPasswordAsync(user, "identity-token", "Password2!")).ReturnsAsync(IdentityResult.Success);
+        await fixture.Service.ResetPasswordAsync(new ResetPasswordRequest { Email = user.Email!, Token = "identity-token", NewPassword = "Password2!", ConfirmPassword = "Password2!" }, "127.0.0.1");
+        fixture.RefreshTokens.Verify(x => x.RevokeAllForUserAsync(user.Id, "127.0.0.1", "Password reset", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ResetPassword_InvalidIdentityTokenIsSafelyRejected()
+    {
+        var fixture = new Fixture(); var user = User(); fixture.UseLoginUser(user);
+        fixture.UserManager.Setup(x => x.ResetPasswordAsync(user, It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(IdentityResult.Failed(new IdentityError { Code = "InvalidToken" }));
+        await Assert.ThrowsAsync<InvalidPasswordResetException>(() => fixture.Service.ResetPasswordAsync(new ResetPasswordRequest { Email = user.Email!, Token = "bad", NewPassword = "Password2!", ConfirmPassword = "Password2!" }, null));
+        fixture.RefreshTokens.Verify(x => x.RevokeAllForUserAsync(It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ChangePassword_UsesIdentityAndRevokesOtherSessions()
+    {
+        var fixture = new Fixture(); var user = User(); fixture.UseCurrentUser(user);
+        fixture.UserManager.Setup(x => x.ChangePasswordAsync(user, "Password1!", "Password2!")).ReturnsAsync(IdentityResult.Success);
+        await fixture.Service.ChangePasswordAsync(user.Id, new ChangePasswordRequest { CurrentPassword = "Password1!", NewPassword = "Password2!", ConfirmPassword = "Password2!" }, null);
+        fixture.RefreshTokens.Verify(x => x.RevokeAllForUserAsync(user.Id, null, "Password changed", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private static RegisterRequest RegisterRequest() => new()
     {
         Email = " employee@example.com ",
@@ -381,6 +428,7 @@ public class AuthenticationServiceTests
             AccessTokens = new Mock<IAccessTokenService>();
             RefreshTokens = new Mock<IRefreshTokenService>();
             Logger = new Mock<ILogger<AuthenticationService>>();
+            PasswordResetEmails = new Mock<IPasswordResetEmailSender>();
 
             UserManager.Setup(manager => manager.NormalizeEmail(It.IsAny<string>()))
                 .Returns((string email) => email.ToUpperInvariant());
@@ -411,18 +459,24 @@ public class AuthenticationServiceTests
             RefreshTokens.Setup(service => service.RevokeAsync(
                     It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
+            RefreshTokens.Setup(service => service.RevokeAllForUserAsync(
+                    It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+            PasswordResetEmails.Setup(x => x.SendPasswordResetAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
             Service = new AuthenticationService(
                 UserManager.Object,
                 AccessTokens.Object,
                 RefreshTokens.Object,
-                Logger.Object);
+                Logger.Object,
+                passwordResetEmailSender: PasswordResetEmails.Object);
         }
 
         public Mock<UserManager<User>> UserManager { get; }
         public Mock<IAccessTokenService> AccessTokens { get; }
         public Mock<IRefreshTokenService> RefreshTokens { get; }
         public Mock<ILogger<AuthenticationService>> Logger { get; }
+        public Mock<IPasswordResetEmailSender> PasswordResetEmails { get; }
         public AuthenticationService Service { get; }
 
         public void UseLoginUser(User user, bool passwordValid = true)

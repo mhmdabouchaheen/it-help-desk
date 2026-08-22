@@ -74,6 +74,19 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
         AuthenticationService.Setup(service => service.GetCurrentUserAsync(
                 It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Guid userId, CancellationToken _) => CurrentUserResponse(userId));
+        AuthenticationService.Setup(service => service.ForgotPasswordAsync(
+                It.IsAny<ForgotPasswordRequest>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        AuthenticationService.Setup(service => service.ResetPasswordAsync(
+                It.IsAny<ResetPasswordRequest>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        AuthenticationService.Setup(service => service.UpdateProfileAsync(
+                It.IsAny<Guid>(), It.IsAny<UpdateProfileRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid userId, UpdateProfileRequest request, CancellationToken _) => new CurrentUserResponse
+            { UserId = userId, Email = "employee@example.test", DisplayName = request.DisplayName, Roles = ["Employee"], IsActive = true });
+        AuthenticationService.Setup(service => service.ChangePasswordAsync(
+                It.IsAny<Guid>(), It.IsAny<ChangePasswordRequest>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
         TicketService = new Mock<ITicketService>();
         TicketLookupService = new Mock<ITicketLookupService>();
         SupportUserDirectoryService = new Mock<ISupportUserDirectoryService>();
