@@ -24,6 +24,7 @@ import {
 import { downloadBlob } from "../utils/download";
 import { useAuth } from "../auth/AuthProvider";
 import { RoleGroups } from "../auth/roles";
+import { formatAverageResolution } from "../utils/reportFormatting";
 
 const date = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -259,6 +260,10 @@ function ReportContent({
               <dd>{value}</dd>
             </div>
           ))}
+          <div>
+            <dt>Average Resolution Time</dt>
+            <dd>{formatAverageResolution(s.averageResolutionMinutes)}</dd>
+          </div>
         </dl>
       </section>
       <div className="chart-grid">

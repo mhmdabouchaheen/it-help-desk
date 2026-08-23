@@ -46,6 +46,23 @@ public sealed class ManagerTeamScopeTests
     }
 
     [Fact]
+    public async Task ReportsAverageResolution_UsesManagerTeamScopeButSupportSeesOrganization()
+    {
+        await using var f=await Fixture.Create();
+        var created=new DateTime(2026,8,1,0,0,0,DateTimeKind.Utc);
+        var teamTicket=await f.Db.Tickets.SingleAsync(x=>x.ReferenceNumber=="A1");
+        teamTicket.CreatedAtUtc=created;teamTicket.ResolvedAtUtc=created.AddMinutes(30);
+        var otherTicket=await f.Db.Tickets.SingleAsync(x=>x.ReferenceNumber=="B1");
+        otherTicket.CreatedAtUtc=created;otherTicket.ResolvedAtUtc=created.AddMinutes(90);
+        await f.Db.SaveChangesAsync();
+        var reports=new ReportService(f.Db,TimeProvider.System);
+        var manager=await reports.GetTicketReportAsync(new(),f.Access(f.ManagerA,AppRoles.Manager));
+        var support=await reports.GetTicketReportAsync(new(),f.Access(f.Support,AppRoles.ItSupportAgent));
+        Assert.Equal(30,manager.Summary.AverageResolutionMinutes);
+        Assert.Equal(60,support.Summary.AverageResolutionMinutes);
+    }
+
+    [Fact]
     public async Task Detail_ShowsTeamPublicCommentsButNotInternalAndRejectsOtherTeam()
     {
         await using var f=await Fixture.Create();var service=f.Tickets();var access=f.Access(f.ManagerA,AppRoles.Manager);

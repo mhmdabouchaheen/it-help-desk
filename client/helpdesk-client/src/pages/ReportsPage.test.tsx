@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ReportsPage } from "./ReportsPage";
+import { formatAverageResolution } from "../utils/reportFormatting";
 const reload = vi.fn();
 let report: Record<string, unknown>;
 const { exportPdf, exportExcel, downloadBlob } = vi.hoisted(() => ({
@@ -53,6 +54,7 @@ const data = {
     cancelledTickets: 1,
     assignedTickets: 3,
     unassignedTickets: 1,
+    averageResolutionMinutes: 135,
   },
   statusBreakdown: [{ id: 1, name: "Open", count: 2 }],
   priorityBreakdown: [{ id: 1, name: "Low", count: 4 }],
@@ -100,6 +102,19 @@ describe("ReportsPage", () => {
     expect(
       screen.getByLabelText("Agent workload text summary"),
     ).toHaveTextContent("Agent One");
+    expect(screen.getByText("Average Resolution Time")).toBeInTheDocument();
+    expect(screen.getByText("2h 15m")).toBeInTheDocument();
+  });
+  it("formats resolution durations and the N/A state", () => {
+    expect(formatAverageResolution(null)).toBe("N/A");
+    expect(formatAverageResolution(45)).toBe("45m");
+    expect(formatAverageResolution(135)).toBe("2h 15m");
+    expect(formatAverageResolution(1620)).toBe("1d 3h");
+  });
+  it("renders N/A when no eligible ticket has been resolved", () => {
+    report.data = { ...data, summary: { ...data.summary, averageResolutionMinutes: null } };
+    render(<ReportsPage />);
+    expect(screen.getByText("Average Resolution Time").parentElement).toHaveTextContent("N/A");
   });
   it("exports only the currently applied filters and downloads the result", async()=>{
     report.data=data;render(<ReportsPage/>);const user=userEvent.setup();

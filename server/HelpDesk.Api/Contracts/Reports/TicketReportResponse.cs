@@ -8,6 +8,8 @@ public sealed class TicketReportSummaryResponse
     public int CancelledTickets { get; init; }
     public int AssignedTickets { get; init; }
     public int UnassignedTickets { get; init; }
+    /// <summary>Average minutes from ticket creation to authoritative resolution, or null when no valid resolved tickets match.</summary>
+    public double? AverageResolutionMinutes { get; init; }
 }
 
 public sealed class TicketReportBreakdownResponse

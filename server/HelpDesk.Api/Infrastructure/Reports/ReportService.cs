@@ -32,6 +32,26 @@ public sealed class ReportService(ApplicationDbContext db, TimeProvider timeProv
         var priorities = await db.Priorities.AsNoTracking().Where(x=>x.IsActive).OrderBy(x=>x.Rank).Select(x=>new{x.Id,x.Name}).ToListAsync(cancellationToken);
         var categories = await db.Categories.AsNoTracking().Where(x=>x.IsActive).OrderBy(x=>x.SortOrder).Select(x=>new{x.Id,x.Name}).ToListAsync(cancellationToken);
         var aggregate = await tickets.GroupBy(_=>1).Select(g=>new{Total=g.Count(),Cancelled=g.Count(x=>x.CancelledAtUtc!=null),Assigned=g.Count(x=>x.AssignedToUserId!=null),Unassigned=g.Count(x=>x.AssignedToUserId==null)}).SingleOrDefaultAsync(cancellationToken);
+        var resolutionDurations = tickets
+            .Where(x => x.ResolvedAtUtc != null && x.CancelledAtUtc == null && x.ResolvedAtUtc >= x.CreatedAtUtc)
+            .Select(x => (x.ResolvedAtUtc!.Value - x.CreatedAtUtc).TotalMinutes);
+        double? averageResolutionMinutes;
+        if (db.Database.ProviderName?.Contains("Npgsql", StringComparison.Ordinal) == true)
+        {
+            averageResolutionMinutes = await resolutionDurations.AnyAsync(cancellationToken)
+                ? await resolutionDurations.AverageAsync(cancellationToken)
+                : null;
+        }
+        else
+        {
+            var resolutionTimestamps = await tickets
+                .Where(x => x.ResolvedAtUtc != null && x.CancelledAtUtc == null && x.ResolvedAtUtc >= x.CreatedAtUtc)
+                .Select(x => new { x.CreatedAtUtc, ResolvedAtUtc = x.ResolvedAtUtc!.Value })
+                .ToListAsync(cancellationToken);
+            averageResolutionMinutes = resolutionTimestamps.Count == 0
+                ? null
+                : resolutionTimestamps.Average(x => (x.ResolvedAtUtc - x.CreatedAtUtc).TotalMinutes);
+        }
         var terminalIds=statuses.Where(x=>x.IsTerminal).Select(x=>x.Id).ToArray();
         var terminal=terminalIds.Sum(id=>statusCounts.GetValueOrDefault(id));
 
@@ -59,7 +79,7 @@ public sealed class ReportService(ApplicationDbContext db, TimeProvider timeProv
 
         static TicketReportBreakdownResponse Item(short id,string name,IReadOnlyDictionary<short,int> counts)=>new(){Id=id,Name=name,Count=counts.GetValueOrDefault(id)};
         return new TicketReportResponse{
-            Summary=new(){TotalTickets=aggregate?.Total??0,OpenTickets=(aggregate?.Total??0)-terminal,TerminalTickets=terminal,CancelledTickets=aggregate?.Cancelled??0,AssignedTickets=aggregate?.Assigned??0,UnassignedTickets=aggregate?.Unassigned??0},
+            Summary=new(){TotalTickets=aggregate?.Total??0,OpenTickets=(aggregate?.Total??0)-terminal,TerminalTickets=terminal,CancelledTickets=aggregate?.Cancelled??0,AssignedTickets=aggregate?.Assigned??0,UnassignedTickets=aggregate?.Unassigned??0,AverageResolutionMinutes=averageResolutionMinutes},
             StatusBreakdown=statuses.Select(x=>Item(x.Id,x.Name,statusCounts)).ToArray(),PriorityBreakdown=priorities.Select(x=>Item(x.Id,x.Name,priorityCounts)).ToArray(),CategoryBreakdown=categories.Select(x=>Item(x.Id,x.Name,categoryCounts)).ToArray(),Trend=trend,
             AgentWorkload=agents.Select(x=>new AgentWorkloadResponse{UserId=x.Id,DisplayName=x.DisplayName,ActiveTicketCount=activeCounts.GetValueOrDefault(x.Id)}).ToArray()};
     }

@@ -23,7 +23,7 @@ public sealed class ReportExportServiceTests
         Assert.StartsWith("%PDF",Encoding.ASCII.GetString(result.Content,0,4));
         Assert.EndsWith(".pdf",result.FileName);Assert.DoesNotContain(result.FileName,Path.GetInvalidFileNameChars());
         context.Reports.Verify(x=>x.GetTicketReportAsync(context.Request,context.Access,cts.Token),Times.Once);
-        var binary=Encoding.Latin1.GetString(result.Content);Assert.Contains("IT Help Desk",binary);
+        var binary=Encoding.Latin1.GetString(result.Content);Assert.Contains("IT Help Desk",binary);Assert.Contains("Average Resolution Time",binary);Assert.Contains("2h 15m",binary);
         Assert.DoesNotContain("agent@example.test",binary);Assert.DoesNotContain("secret-token",binary);
         Assert.DoesNotContain("internal note",binary);Assert.DoesNotContain("storage/key",binary);
         var resources=typeof(ReportPdfFontConfiguration).Assembly.GetManifestResourceNames();
@@ -57,7 +57,7 @@ public sealed class ReportExportServiceTests
         using var workbook=new XLWorkbook(new MemoryStream(result.Content));
         Assert.Equal(["Summary","Status","Priority","Categories","Trend","Agent Workload"],workbook.Worksheets.Select(x=>x.Name));
         Assert.Equal("IT Help Desk - Ticket Report",workbook.Worksheet("Summary").Cell("A1").GetString());
-        Assert.Contains(workbook.Worksheet("Summary").CellsUsed(),x=>x.GetString()=="7");
+        Assert.Contains(workbook.Worksheet("Summary").CellsUsed(),x=>x.GetString()=="7");Assert.Contains(workbook.Worksheet("Summary").CellsUsed(),x=>x.GetString()=="2h 15m");
         Assert.Contains(workbook.Worksheet("Status").CellsUsed(),x=>x.GetString()=="Open");
         Assert.Contains(workbook.Worksheet("Agent Workload").CellsUsed(),x=>x.GetString()=="Safe Agent");
         Assert.DoesNotContain(workbook.Worksheets.SelectMany(x=>x.CellsUsed()),x=>x.GetString().Contains("example.test")||x.GetString().Contains("token")||x.GetString().Contains("internal note")||x.GetString().Contains("storage/key"));
@@ -76,7 +76,7 @@ public sealed class ReportExportServiceTests
     private static Context Create(string agentDisplayName="Safe Agent",IReadOnlyList<TicketReportTrendResponse>? trend=null)
     {
         var request=new TicketReportRequest{FromUtc=new DateTime(2026,8,1,0,0,0,DateTimeKind.Utc),CategoryId=1};
-        var data=new TicketReportResponse{Summary=new(){TotalTickets=7,OpenTickets=4,TerminalTickets=3,CancelledTickets=1,AssignedTickets=5,UnassignedTickets=2},StatusBreakdown=[new(){Id=1,Name="Open",Count=4}],PriorityBreakdown=[new(){Id=2,Name="Critical",Count=2}],CategoryBreakdown=[new(){Id=1,Name="Hardware",Count=7}],Trend=trend??[new(){PeriodStartUtc=new DateTime(2026,8,1,0,0,0,DateTimeKind.Utc),CreatedCount=2,ClosedCount=1}],AgentWorkload=[new(){UserId=Guid.NewGuid(),DisplayName=agentDisplayName,ActiveTicketCount=3}]};
+        var data=new TicketReportResponse{Summary=new(){TotalTickets=7,OpenTickets=4,TerminalTickets=3,CancelledTickets=1,AssignedTickets=5,UnassignedTickets=2,AverageResolutionMinutes=135},StatusBreakdown=[new(){Id=1,Name="Open",Count=4}],PriorityBreakdown=[new(){Id=2,Name="Critical",Count=2}],CategoryBreakdown=[new(){Id=1,Name="Hardware",Count=7}],Trend=trend??[new(){PeriodStartUtc=new DateTime(2026,8,1,0,0,0,DateTimeKind.Utc),CreatedCount=2,ClosedCount=1}],AgentWorkload=[new(){UserId=Guid.NewGuid(),DisplayName=agentDisplayName,ActiveTicketCount=3}]};
         var access=AdminAccess();var reports=new Mock<IReportService>();reports.Setup(x=>x.GetTicketReportAsync(request,access,It.IsAny<CancellationToken>())).ReturnsAsync(data);
         return new(request,access,reports,new ReportExportService(reports.Object,new FixedTime()));
     }
