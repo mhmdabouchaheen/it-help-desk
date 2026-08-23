@@ -41,6 +41,30 @@ public sealed class SmtpPasswordResetEmailSenderTests
         Assert.DoesNotContain(smtpPassword, log, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task SendPasswordResetAsync_LogsFailuresDuringMessageSetup()
+    {
+        var logger = new RecordingLogger<SmtpPasswordResetEmailSender>();
+        var sender = new SmtpPasswordResetEmailSender(
+            Options.Create(new PasswordResetEmailOptions
+            {
+                FrontendBaseUrl = "https://client.example.test",
+                Host = "smtp.gmail.com",
+                Port = 587,
+                UseSsl = true,
+                FromAddress = "not-an-email-address"
+            }),
+            logger);
+
+        await Assert.ThrowsAnyAsync<Exception>(() => sender.SendPasswordResetAsync(
+            "recipient@example.test",
+            "reset-token"));
+
+        var log = Assert.Single(logger.Messages);
+        Assert.Contains("Password-reset SMTP delivery failed", log, StringComparison.Ordinal);
+        Assert.Contains("ExceptionType", log, StringComparison.Ordinal);
+    }
+
     private sealed class RecordingLogger<T> : ILogger<T>
     {
         public List<string> Messages { get; } = [];

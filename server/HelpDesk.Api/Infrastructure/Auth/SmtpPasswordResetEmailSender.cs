@@ -20,23 +20,23 @@ public sealed class SmtpPasswordResetEmailSender(
             return;
         }
 
-        var link = $"{value.FrontendBaseUrl.TrimEnd('/')}/reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(token)}";
-        using var message = new MailMessage(value.FromAddress, email)
-        {
-            Subject = "Reset your IT Help Desk password",
-            Body = $"Use this link to reset your password: {link}",
-            IsBodyHtml = false
-        };
-        using var client = new SmtpClient(value.Host, value.Port)
-        {
-            EnableSsl = value.UseSsl,
-            Credentials = string.IsNullOrWhiteSpace(value.Username)
-                ? CredentialCache.DefaultNetworkCredentials
-                : new NetworkCredential(value.Username, value.Password)
-        };
-        cancellationToken.ThrowIfCancellationRequested();
         try
         {
+            var link = $"{value.FrontendBaseUrl.TrimEnd('/')}/reset-password?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(token)}";
+            using var message = new MailMessage(value.FromAddress, email)
+            {
+                Subject = "Reset your IT Help Desk password",
+                Body = $"Use this link to reset your password: {link}",
+                IsBodyHtml = false
+            };
+            using var client = new SmtpClient(value.Host, value.Port)
+            {
+                EnableSsl = value.UseSsl,
+                Credentials = string.IsNullOrWhiteSpace(value.Username)
+                    ? CredentialCache.DefaultNetworkCredentials
+                    : new NetworkCredential(value.Username, value.Password)
+            };
+            cancellationToken.ThrowIfCancellationRequested();
             await client.SendMailAsync(message, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
