@@ -42,6 +42,8 @@ ReportPdfFontConfiguration.Configure();
 if (builder.Environment.IsDevelopment())
 {
     builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+    LoadDevelopmentDotEnv(builder.Environment.ContentRootPath);
+    builder.Configuration.AddEnvironmentVariables();
 }
 
 // Add services to the container.
@@ -289,6 +291,30 @@ app.MapHub<NotificationHub>("/hubs/notifications");
 app.MapHealthChecks("/healthz").ExcludeFromDescription();
 
 app.Run();
+
+static void LoadDevelopmentDotEnv(string contentRootPath)
+{
+    var path = Path.Combine(contentRootPath, ".env");
+    if (!File.Exists(path)) return;
+
+    foreach (var rawLine in File.ReadLines(path))
+    {
+        var line = rawLine.Trim();
+        if (line.Length == 0 || line.StartsWith('#')) continue;
+
+        var separator = line.IndexOf('=');
+        if (separator <= 0) continue;
+
+        var name = line[..separator].Trim();
+        if (name.StartsWith("export ", StringComparison.Ordinal)) name = name[7..].Trim();
+        if (name.Length == 0 || Environment.GetEnvironmentVariable(name) is not null) continue;
+
+        var value = line[(separator + 1)..].Trim();
+        if (value.Length >= 2 && ((value[0] == '"' && value[^1] == '"') || (value[0] == '\'' && value[^1] == '\'')))
+            value = value[1..^1];
+        Environment.SetEnvironmentVariable(name, value);
+    }
+}
 
 static Task WriteAuthenticationProblemAsync(
     HttpContext httpContext,
